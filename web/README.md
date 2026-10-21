@@ -3,6 +3,8 @@
 Sitio estático: `index.html` + `estilo.css` + `app.js` + `data/*.json`. Librerías externas: Leaflet 1.9.4 (cdnjs) y Motion 11.18.2 (jsDelivr, opcional: sin ella se ve igual, sin animaciones). Fuente Inter con alternativa del sistema.
 `actualizar.py` (solo biblioteca estándar) regenera los JSON. `servidor.py` (solo biblioteca estándar + SQLite) es **opcional**: recibe los envíos de usuarios y ofrece un panel para revisarlos.
 
+Repositorio abierto: https://github.com/LucassToledo/mapa-inundaciones-nea
+
 Creado por [@eltiolucas.ia](https://www.instagram.com/eltiolucas.ia/) (el crédito está en el encabezado y en el aviso legal de `index.html`).
 
 ## Qué hace
