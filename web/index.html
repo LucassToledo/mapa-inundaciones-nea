@@ -15,23 +15,19 @@
 <body>
 <div id="map" role="application" aria-label="Mapa interactivo de inundaciones"></div>
 <div id="cmp-line" role="slider" tabindex="0" aria-label="Línea para comparar dos fotos del satélite" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" hidden><span class="l"></span><span class="r"></span><i aria-hidden="true">⇆</i></div>
-<div id="cmp" class="glass" role="group" aria-label="Comparar fotos del satélite" hidden>
- <label>Antes <select id="cmp-a"></select></label>
- <label>Después <select id="cmp-b"></select></label>
- <button type="button" id="cmp-x" class="btn sec">Ocultar fotos</button>
- <p id="leyenda"><span><i class="sw n"></i><b id="leyenda-f"></b></span><span><i class="sw p"></i>Agua que ya estaba</span><span><i class="sw g"></i>Rayado: sin dato (nubes)</span><small>Satélite Sentinel-2, 10 m por píxel. Con nubes o sombras puede fallar.</small></p>
-</div>
+<div id="carga" role="status" aria-live="polite" hidden></div>
 
-<!-- Aviso siempre visible: no se puede cerrar -->
+<!-- Aviso al entrar: se puede cerrar y el detalle queda en «Aviso» del encabezado -->
 <div id="strip" role="note">
  <span><strong>Información automática y NO oficial.</strong> Ante una emergencia llamá al <strong>911</strong> y seguí a Defensa Civil.</span>
- <button type="button" id="btn-aviso">Ver detalle</button>
+ <button type="button" data-aviso>Ver detalle</button>
+ <button type="button" id="strip-x" aria-label="Cerrar el aviso" title="Cerrar">×</button>
 </div>
-
+<div id="izq">
 <header id="top" class="glass">
  <div class="brand">
   <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3C12 10 7 14.5 7 20a9 9 0 0018 0c0-5.500-5-10-9-17z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00a3d9"/><stop offset="1" stop-color="#0a63c9"/></linearGradient></defs></svg>
-  <div><h1 class="grad">Inundaciones Chaco y NEA</h1><small id="brand-sub">Mapa abierto de inundaciones<br>Creado por <a href="https://www.instagram.com/eltiolucas.ia/" target="_blank" rel="noopener">@eltiolucas.ia</a></small></div>
+  <div><h1 class="grad">Inundaciones Chaco y NEA</h1><small id="brand-sub">Mapa abierto de inundaciones<br>Creado por <a href="https://www.instagram.com/eltiolucas.ia/" target="_blank" rel="noopener">@eltiolucas.ia</a> · <button type="button" class="link" data-aviso>Aviso</button></small></div>
   <button type="button" id="btn-help" class="icon" aria-label="Ver el tutorial" title="Tutorial">?</button>
   <button type="button" id="min-top" class="icon" aria-expanded="true" aria-label="Minimizar el encabezado" title="Minimizar"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
  </div>
@@ -52,6 +48,24 @@
   </div>
  </div>
 </header>
+<div id="cmp" class="glass" role="group" aria-label="Comparar fotos del satélite" hidden>
+ <label>Antes <select id="cmp-a"></select></label>
+ <label>Después <select id="cmp-b"></select></label>
+ <button type="button" id="cmp-x" class="btn sec" aria-pressed="false">Ocultar satélite</button>
+ <p id="leyenda"><span><i class="sw n"></i><b id="leyenda-f"></b></span><span><i class="sw p"></i>Agua que ya estaba</span><span><i class="sw g"></i>Rayado: sin dato (nubes)</span><small>Sentinel-2, 10 a 20 m por píxel. Agua según el índice MNDWI y la clasificación de la escena. Con nubes puede fallar.</small></p>
+</div>
+<div id="dock" class="glass" role="toolbar" aria-label="Capas del mapa">
+ <button type="button" class="dk" data-l="est" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 8c3 0 3 2 6 2s3-2 6-2 3 2 6 2M3 14c3 0 3 2 6 2s3-2 6-2 3 2 6 2"/></svg><span class="lb">Ríos</span><span class="tip" id="t-est">Ríos (INA)</span></button>
+ <button type="button" class="dk" data-l="gfm" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/></svg><span class="lb">Radar</span><span class="tip" id="t-gfm">Agua por radar</span></button>
+ <button type="button" class="dk" data-l="cam" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3C9 9 5.500 12 5.500 16a6.500 6.500 0 0013 0C18.500 12 15 9 12 3z"/></svg><span class="lb">Agua nueva</span><span class="tip">Agua que apareció entre las dos fechas</span></button>
+ <button type="button" class="dk" data-l="hd" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6"/></svg><span class="lb">Foto HD</span><span class="tip">Aérea de archivo 2011-2021 (IGN), no es de hoy</span></button>
+ <button type="button" class="dk" data-l="pre" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M5 4h11v16H7a2 2 0 01-2-2V4zM16 8h3v10a2 2 0 01-2 2M8 8h5M8 12h5M8 16h5"/></svg><span class="lb">Prensa</span><span class="tip" id="t-pre">Notas de prensa</span></button>
+ <button type="button" class="dk" data-l="ale" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3zM12 10v5M12 18v.5"/></svg><span class="lb">Alertas</span><span class="tip" id="t-ale">Alertas SMN</span></button>
+ <button type="button" class="dk" data-l="vid" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span class="lb">Videos</span><span class="tip">Videos con ubicación</span></button>
+ <button type="button" id="solo" class="dk" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lb">Mapa</span><span class="tip">Solo mapa (ocultar paneles)</span></button>
+</div>
+</div>
+
 
 <aside id="panel" class="glass" aria-label="Paneles de información">
  <button type="button" id="grip" aria-label="Mostrar u ocultar el panel"><span></span></button>
@@ -71,8 +85,8 @@
    2. Arriba del panel aparece si el satélite vio agua sobre tu punto en su última foto clara. Abajo están las fotos reales, fecha por fecha: tocá una y arrastrá la línea del mapa para comparar con otra.<br>
    3. Más abajo, el pronóstico de los próximos meses para el río más cercano y el radar de agua del radio que elegiste (5, 10 o 25 km).<br>
    4. Compartí el enlace: abre el mapa en la misma zona, sin tu dirección exacta (se redondea a ~1 km). Para consultar fotos y pronóstico, tu punto exacto se envía a Microsoft (fotos) y Open-Meteo (pronóstico); la dirección escrita se consulta en OpenStreetMap.<br>
-   5. <b>Agua nueva</b> (botón de abajo): marca en azul fuerte lo que el satélite ve con agua en la fecha “Después” y no tenía en la fecha “Antes”. Cada píxel mide 10 m, así que se ve el barrio pero no la casa. El botón <b>Mapa</b> esconde los paneles y las flechas ⌃ los achican.</p>
-   <p><b>Sin dato no significa sin agua.</b> El satélite no ve a través de las nubes y el pronóstico es regional: no dice si el agua llega a tu casa.</p>
+   5. <b>Agua nueva</b> (botón de abajo): marca en azul fuerte lo que el satélite ve con agua en la fecha “Después” y no tenía en la fecha “Antes”. Cada píxel mide 10 m, así que se ve el barrio pero no la casa. <b>Ocultar satélite</b> deja el mapa de calles con el agua marcada encima. El botón <b>Mapa</b> esconde los paneles y las flechas ⌃ los achican.</p>
+   <p><b>Sin dato no significa sin agua.</b> El satélite no ve a través de las nubes y el pronóstico es regional: no dice si el agua llega a tu casa. <button type="button" class="link" data-aviso>Aviso completo</button></p>
   </details>
   <div id="stats" class="stats"></div>
   <div id="zona"></div>
@@ -124,25 +138,6 @@
  </section>
 </aside>
 
-<div id="player" class="glass" hidden>
- <button type="button" id="play" class="icon" aria-label="Reproducir la línea de tiempo"><svg viewBox="0 0 24 24"><path id="play-i" d="M8 5l11 7-11 7z"/></svg></button>
- <div class="pl-mid">
-  <input type="range" id="gfm-r" min="0" max="0" value="0" aria-label="Fecha de la escena satelital">
-  <div id="gfm-l" aria-live="polite"></div>
- </div>
-</div>
-
-<div id="dock" class="glass" role="toolbar" aria-label="Capas del mapa">
- <button type="button" class="dk" data-l="est" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 8c3 0 3 2 6 2s3-2 6-2 3 2 6 2M3 14c3 0 3 2 6 2s3-2 6-2 3 2 6 2"/></svg><span class="lb">Ríos</span><span class="tip" id="t-est">Ríos (INA)</span></button>
- <button type="button" class="dk" data-l="gfm" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/></svg><span class="lb">Satélite</span><span class="tip" id="t-gfm">Agua detectada</span></button>
- <button type="button" class="dk" data-l="cam" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3C9 9 5.500 12 5.500 16a6.500 6.500 0 0013 0C18.500 12 15 9 12 3z"/></svg><span class="lb">Agua nueva</span><span class="tip">Agua que apareció entre las dos fechas</span></button>
- <button type="button" class="dk" data-l="hd" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6"/></svg><span class="lb">Foto HD</span><span class="tip">Aérea de archivo 2011-2021 (IGN), no es de hoy</span></button>
- <button type="button" class="dk" data-l="pre" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M5 4h11v16H7a2 2 0 01-2-2V4zM16 8h3v10a2 2 0 01-2 2M8 8h5M8 12h5M8 16h5"/></svg><span class="lb">Prensa</span><span class="tip" id="t-pre">Notas de prensa</span></button>
- <button type="button" class="dk" data-l="ale" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3zM12 10v5M12 18v.5"/></svg><span class="lb">Alertas</span><span class="tip" id="t-ale">Alertas SMN</span></button>
- <button type="button" class="dk" data-l="vid" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span class="lb">Videos</span><span class="tip">Videos con ubicación</span></button>
- <button type="button" id="solo" class="dk" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lb">Mapa</span><span class="tip">Solo mapa (ocultar paneles)</span></button>
-</div>
-
 
 <button type="button" id="solo-x" class="glass" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>Mostrar paneles</button>
 
@@ -155,7 +150,7 @@
   <li><strong>Sin datos ≠ sin agua.</strong> Que una zona no tenga marcas no significa que esté a salvo.</li>
   <li>Prensa: titulares recolectados y ubicados por palabras clave, sin revisión humana; la ubicación puede ser aproximada o errónea. Se descartan los de más de 60 días.</li>
   <li>Fotos y “¿hay agua en tu punto?”: imágenes Sentinel-2 de los últimos 75 días. Con nubes no se ve el suelo, y una sombra o un techo oscuro pueden parecer agua. Se muestra la fecha de cada foto. No mide profundidad.</li>
-  <li>Agua nueva: cálculo propio sobre Sentinel-2 (10 m por píxel), comparando el índice de agua (NDWI) de dos fechas. Una sombra, un techo oscuro o un campo recién arado pueden marcarse mal, y las nubes tapan el suelo (se rayan en gris). Es una pista para ir a mirar, no una medición.</li>
+  <li>Agua nueva: cálculo propio sobre Sentinel-2 (10 m por píxel), comparando el índice de agua MNDWI (verde contra infrarrojo de onda corta) de dos fechas, junto con la clasificación de nubes y agua de la propia escena. Se descartan los píxeles sueltos. Una sombra, un techo oscuro o un campo recién arado pueden marcarse mal, y las nubes tapan el suelo (se rayan en gris). Es una pista para ir a mirar, no una medición.</li>
   <li>Foto HD (botón de abajo): fotos aéreas del Instituto Geográfico Nacional de entre 2011 y 2021 (Resistencia 2011, Barranqueras 2014, Corrientes-Resistencia 2016, Fontana 2021). Tienen unos 0,4 m por píxel y sirven para ubicar calles y casas bajo el azul de “Agua nueva”. <b>No muestran el agua de hoy</b>: arrancan apagadas y se avisa cada vez que se activan.</li>
   <li>Pronóstico: modelo regional de caudales (GloFAS) y lluvia estacional, por mes y comparado con 1984 a hoy. Corresponde al río modelado más cercano, no a tu terreno, y no indica si el agua llega a tu casa.</li>
   <li>Satélite (Sentinel-1 radar, Copernicus GFM): pasa cada pocos días, no detecta bien agua bajo vegetación ni en zonas urbanas. Mirá siempre la fecha de la escena y el porcentaje de cobertura. Los km² son estimaciones.</li>

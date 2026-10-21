@@ -16,6 +16,7 @@ Herramienta pública para vecinos, municipios y Defensa Civil. Muestra dónde ha
 | 4. Satelital real | Fotos Sentinel-2 por fecha con comparador, «mi dirección» con pronóstico (GloFAS y lluvia estacional de Open-Meteo) |
 | 5. Replanteo | Tras la prueba en el barrio junto al puente General Belgrano (lado chaqueño), el radar no marcaba el agua. Se creó la capa **Agua nueva** (NDWI propio sobre Sentinel-2), arranque en comparación, alertas SMN apagadas, atribuciones abajo, recorrido en cada ingreso. Plan en `investigacion/10-plan-de-mejora.md` |
 | 6. Alta resolución | Revisión de CONAE, IGN e INTA. Se integró **Foto HD** del IGN (0,4 m, archivo 2011 a 2021) y se acotó el mapa a San Fernando |
+| 7. Usabilidad y precisión | Indicador de carga, aviso cerrable, «Ocultar satélite» reversible con el agua visible sobre el mapa de calles, dos columnas en PC, sin línea de tiempo del radar. Detección con MNDWI y la clasificación SCL de Sentinel-2, sin píxeles sueltos. Plan nuevo centrado en medir la precisión |
 
 ## 3. Decisiones tomadas
 
@@ -45,19 +46,19 @@ Conclusión: no existe una fuente gratuita y reciente de 1 m o menos sobre la zo
 ## 5. Estado actual
 
 - Sitio funcionando en local (`http://localhost:8765/`). Sin publicar.
-- Último commit subido a `main` al cierre de esta minuta: `710c129`.
+- Último commit en `main`: `3e71be6`. Los cambios del 21 de octubre (etapa 7) están sin commitear.
 - Foto HD verificada en el navegador: las teselas cargan y conviven con «Agua nueva».
 
 ## 6. Pendientes, por prioridad
 
-1. **Validar «Agua nueva»** contra un mapa real (CONAE, Carta Internacional o delineado a mano sobre fotos de dron). Calibrar umbrales y filtrar manchas menores a unos 3 píxeles.
+1. **Medir «Agua nueva»**: 300 puntos de referencia a mano y un script `web/validar.py` con matriz de confusión. Meta: 85 % de precisión y 70 % de sensibilidad. Detalle en la fase 1 del plan.
 2. **Pedir a CONAE** los productos de las activaciones 353, 359, 360 y 361 (u_inter@conae.gov.ar, atencion.usuario@conae.gov.ar).
 3. **Consultar al IGN** si publicar su WMS en un sitio requiere autorización.
 4. **Capa de evidencias públicas**: puntos con enlace a foto o video, siempre con fecha, fuente y estado (reportado, ubicado, coincide con el satélite).
 5. **Sentinel-1** como segunda capa con otro color y etiqueta «radar».
 6. Medir las peticiones a Planetary Computer con tráfico real. Si rechaza, pasar a un proxy con caché.
 7. Identificar el error 403 de la consola.
-8. Actualizar leyenda, recorrido y PDF para mencionar la Foto HD.
+8. Actualizar el PDF (todavía dice NDWI y 10 m).
 9. Probar en celulares reales y con 3G.
 10. Revisión jurídica del aviso legal.
 

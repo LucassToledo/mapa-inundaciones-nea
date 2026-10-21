@@ -46,10 +46,6 @@ function tick(el, to, dec = 0) {
   if (!mov || !to) return;
   try { M.animate(0, to, { duration: .9, ease: "easeOut", onUpdate: v => el.textContent = nf(v, dec) }); } catch { }
 }
-function fade(ls, a, b, done) {
-  if (!mov) { ls.forEach(l => l.setOpacity(b)); done && done(); return; }
-  M.animate(a, b, { duration: .5, onUpdate: v => ls.forEach(l => l.setOpacity(v)), onComplete: () => { ls.forEach(l => l.setOpacity(b)); done && done(); } });
-}
 document.addEventListener("pointermove", e => {            // Spotlight: el brillo sigue al cursor
   const c = e.target.closest && e.target.closest(".card");
   if (c) { const r = c.getBoundingClientRect(); c.style.setProperty("--mx", e.clientX - r.left + "px"); c.style.setProperty("--my", e.clientY - r.top + "px"); }
@@ -82,7 +78,10 @@ const tipoPill = t => { const [n, c, f] = TIPO[t] || TIPO.general; return `<span
 const map = L.map("map", { preferCanvas: true, zoomControl: false, attributionControl: true, minZoom: 10, maxBounds: CFG.limites, maxBoundsViscosity: .9 });
 map.attributionControl.setPrefix(false);
 L.control.zoom({ position: "bottomright", zoomInTitle: "Acercar", zoomOutTitle: "Alejar" }).addTo(map);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
+/* ——— indicador de carga: visible mientras alguna capa o consulta está en curso ——— */
+const carga = (() => { const s = new Set(); return (k, v) => { v ? s.add(k) : s.delete(k); const el = $("#carga"); el.hidden = !s.size; el.textContent = s.has("agua") ? "Calculando el agua…" : "Cargando mapa…"; }; })();
+let nc = 0; const vigila = l => { const k = "c" + nc++; return l.on("loading", () => carga(k, 1)).on("load remove", () => carga(k, 0)); };
+vigila(L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' })).addTo(map);
 map.createPane("gfm").style.zIndex = 250;
 const G = {}; ["est", "gfm", "pre", "ale", "vid", "zona"].forEach(k => G[k] = L.layerGroup().addTo(map));
 map.removeLayer(G.ale);
@@ -90,7 +89,7 @@ const sheetPx = () => document.body.classList.contains("sheet-open") ? Math.min(
 const BC = document.body.classList;
 const pad = () => {
   const so = BC.contains("solo"), tm = BC.contains("top-min");
-  if (innerWidth > 800) return { paddingTopLeft: [16, so ? 70 : tm ? 120 : 190], paddingBottomRight: [so || BC.contains("panel-min") ? 16 : 440, 100] };
+  if (innerWidth > 800) return { paddingTopLeft: [so ? 16 : 404, 60], paddingBottomRight: [so || BC.contains("panel-min") ? 16 : 440, 40] };
   return { paddingTopLeft: [10, so ? 70 : tm ? 110 : 170], paddingBottomRight: [10, so ? 100 : sheetPx() + (BC.contains("sheet-open") ? 24 : 150)] };
 };
 const fit = (b, mz = 14) => (reduce ? map.fitBounds(b, { ...pad(), maxZoom: mz }) : map.flyToBounds(b, { ...pad(), maxZoom: mz, duration: .9 }));
@@ -111,7 +110,8 @@ $("#tabs").addEventListener("keydown", e => {
   const b = t[(n + t.length) % t.length]; b.focus(); tab(b.dataset.p, false);
 });
 $("#grip").addEventListener("click", () => document.body.classList.toggle("sheet-open"));
-$("#btn-aviso").addEventListener("click", () => $("#d-aviso").showModal());
+$("#strip-x").addEventListener("click", () => { BC.add("sin-aviso"); map.invalidateSize(); });
+document.addEventListener("click", e => { if (e.target.closest("[data-aviso]")) $("#d-aviso").showModal(); });
 document.addEventListener("click", e => {
   const g = e.target.closest("[data-go]"); if (g) { const [la, lo, z] = g.dataset.go.split(",").map(Number); ir(la, lo, z || 3); if (innerWidth <= 800) document.body.classList.remove("sheet-open"); return; }
   const s = e.target.closest(".est[data-id]"); if (s) { const x = D.est.find(v => v.id == s.dataset.id); if (x) { ir(x.lat, x.lon, 4); x._m && setTimeout(() => x._m.openPopup(), 400); if (innerWidth <= 800) document.body.classList.remove("sheet-open"); } }
@@ -123,7 +123,6 @@ const on = { est: 1, gfm: 1, pre: 1, ale: 0, vid: 1, cam: 1, hd: 0 };   // las a
 $$(".dk[data-l]").forEach(b => b.addEventListener("click", () => {
   const l = b.dataset.l; on[l] = !on[l]; b.setAttribute("aria-pressed", !!on[l]);
   if (G[l]) on[l] ? map.addLayer(G[l]) : map.removeLayer(G[l]);
-  if (l === "gfm") $("#player").hidden = !on.gfm || !D.gfm.length;
   if (l === "cam") camEstado();
   if (l === "hd") hdEstado();
 }));
@@ -240,46 +239,17 @@ $("#videos").addEventListener("click", e => {
   a.closest(".vid").insertAdjacentHTML("beforeend", `<iframe src="https://www.youtube-nocookie.com/embed/${v.yt}" title="${esc(v.titulo)}" allow="encrypted-media;picture-in-picture" allowfullscreen loading="lazy"></iframe>`);
 });
 
-/* ——— satélite: una pasada por vez, con línea de tiempo ——— */
+/* ——— radar GFM: se muestra la última pasada, o la que corresponde a la zona elegida ——— */
 const CM = "&colormap=" + encodeURIComponent(JSON.stringify({ 0: [0, 0, 0, 0], 1: [0, 114, 178, 230] }));
 const VACIO = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
-let fechas = [], idx = -1, cur = [], saliendo = [], timer = null;
+let fechas = [];
 const mkScene = (s, op) => L.tileLayer(s.tiles + CM, { pane: "gfm", bounds: [[s.bounds[1], s.bounds[0]], [s.bounds[3], s.bounds[2]]], minZoom: Math.max(7, s.min - 2), minNativeZoom: s.min, maxNativeZoom: s.max, maxZoom: 19, opacity: op, errorTileUrl: VACIO, attribution: "Inundación: Copernicus GFM" });
-function etiqueta() {
-  const f = fechas[idx]; if (!f) return;
-  const z = Math.min(...f.e.map(s => Math.max(7, s.min - 2)));
-  $("#gfm-l").innerHTML = `<b>Pasada del ${fdia(f.f)}</b> · ${[...new Set(f.e.map(s => s.hora.slice(0, 5)))].slice(0, 3).join(", ")} h · ${f.e.length} escena${f.e.length > 1 ? "s" : ""}${map.getZoom() < z ? "<br>Acercá el mapa para ver el agua detectada." : ""}`;
-  $("#gfm-r").setAttribute("aria-valuetext", "Pasada del " + fdia(f.f));
-  $("#t-gfm").textContent = `Agua detectada: pasada del ${fdia(f.f)}`;
-}
-function ver(i, animar = true) {
-  if (i === idx || !fechas[i]) return;
-  saliendo.forEach(l => G.gfm.removeLayer(l)); saliendo = [];
-  const old = cur; idx = i; $("#gfm-r").value = i;
-  cur = fechas[i].e.map(s => mkScene(s, 0)); cur.forEach(l => G.gfm.addLayer(l));
-  fade(cur, 0, .85); animar ? 0 : 0;
-  if (old.length) { saliendo = old; fade(old, .85, 0, () => { old.forEach(l => G.gfm.removeLayer(l)); saliendo = []; }); }
-  etiqueta();
-}
-function play(v) {
-  const i = $("#play-i"), b = $("#play");
-  clearInterval(timer); timer = null;
-  if (v) {
-    if (idx >= fechas.length - 1) ver(0);
-    timer = setInterval(() => { if (idx >= fechas.length - 1) return play(false); ver(idx + 1); }, 1500);
-  }
-  i.setAttribute("d", v ? "M7 5h4v14H7zM13 5h4v14h-4z" : "M8 5l11 7-11 7z");
-  b.setAttribute("aria-label", v ? "Pausar la línea de tiempo" : "Reproducir la línea de tiempo");
-}
-$("#play").addEventListener("click", () => play(!timer));
-$("#gfm-r").addEventListener("input", e => { play(false); ver(+e.target.value); });
-map.on("zoomend", etiqueta);
+function verGfm(i) { G.gfm.clearLayers(); fechas[i].e.forEach(s => G.gfm.addLayer(mkScene(s, .85))); $("#t-gfm").textContent = `Agua por radar: pasada del ${fdia(fechas[i].f)}`; }
 function renderGfm(j) {
   const m = new Map(); j.escenas.forEach(s => (m.get(s.fecha) || m.set(s.fecha, []).get(s.fecha)).push(s));
   D.gfm = j.escenas; fechas = [...m].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([f, e]) => ({ f, e }));
   if (!fechas.length) return;
-  const r = $("#gfm-r"); r.max = fechas.length - 1; $("#player").hidden = false;
-  ver(fechas.length - 1);
+  verGfm(fechas.length - 1);
 }
 
 /* ——— cálculo del agua detectada en una zona (cuenta píxeles de los tiles del satélite) ——— */
@@ -360,7 +330,7 @@ function pintaSat(res) {
   tick($("#z-km"), a.km2, a.km2 < 10 ? 1 : 0);
   const bar = $("#z-bar"), w = Math.min(100, a.agua * 100) + "%";
   if (mov) { try { M.animate(bar, { width: ["0%", w] }, { duration: .8, ease: [.22, 1, .36, 1] }); } catch { } } bar.style.width = w;
-  const i = fechas.findIndex(f => f.f === a.f); if (i >= 0) ver(i);
+  const i = fechas.findIndex(f => f.f === a.f); if (i >= 0) verGfm(i);
 }
 const compartir = async () => {
   const u = location.href;
@@ -451,13 +421,14 @@ const ART = d => d.toLocaleDateString("sv-SE", { timeZone: TZ });          // AA
 const ext = u => fetch(u).then(r => { if (!r.ok) throw Error(r.status); return r.json(); });   // sin cache:"no-cache": evita una consulta previa (CORS) a terceros
 const mem = {}, una = (k, f) => mem[k] ??= f().catch(e => { delete mem[k]; throw e; });
 const medido = {};                                                          // id de foto + punto -> { e, pct }
-const C = { fotos: [], A: 0, B: 0, v: 50, capas: [null, null], agua: null, n: 0, toco: false, mide: false, key: "" };
+const C = { fotos: [], A: 0, B: 0, v: 50, capas: [null, null], agua: null, sat: true, n: 0, toco: false, mide: false, key: "" };
 map.createPane("fotoA").style.zIndex = 240; map.createPane("fotoB").style.zIndex = 241; map.createPane("hd").style.zIndex = 243; map.createPane("agua").style.zIndex = 246;
 /* ——— foto aérea HD de archivo (IGN, 2011 a 2021, unos 0,4 m por píxel): sirve para ubicar calles y casas bajo el azul de "Agua nueva". NO es el agua de hoy ——— */
 const ign = (ws, capas, b) => L.tileLayer.wms(`https://imagenes.ign.gob.ar/geoserver/${ws}/ows`, { layers: capas, format: "image/vnd.jpeg-png", transparent: true, version: "1.3.0", pane: "hd", tileSize: 512, zoomOffset: -1, minZoom: 12, maxZoom: 19, bounds: b, attribution: "Foto aérea HD de archivo 2011-2021. FUENTE: Instituto Geográfico Nacional de la República Argentina" });
 const HD = L.layerGroup([                                                                   // la más nueva va encima
   ign("ortomosaicos_fotogrametria", "resistencia_2011,barranqueras_2014,corrientes-resistencia_2016", [[-27.67, -59.50], [-27.33, -58.72]]),
   ign("ortomosaicos_vant", "fontana_2021", [[-27.452, -59.088], [-27.381, -58.997]])]);
+HD.eachLayer(vigila);
 function hdEstado() {
   on.hd ? HD.addTo(map) : map.removeLayer(HD);
   if (on.hd) { if (map.getZoom() < 13) map.setZoom(14); toast("Foto aérea de archivo (2011 a 2021, IGN): sirve para ver calles y casas. No muestra el agua de hoy; el azul de “Agua nueva” sí es reciente.", 7000); }
@@ -470,7 +441,7 @@ const mosaico = dia => MOS[dia] ??= fetch(PC + "data/v1/mosaic/register", { meth
   filter: { op: "and", args: [{ op: "s_intersects", args: [{ property: "geometry" }, BOX] }, { op: "anyinteracts", args: [{ property: "datetime" }, { interval: [dia + "T00:00:00Z", dia + "T23:59:59Z"] }] }] } }) })
   .then(r => { if (!r.ok) throw Error(r.status); return r.json(); }).then(j => j.searchid).catch(e => { delete MOS[dia]; throw e; });
 const MT = id => `${PC}data/v1/mosaic/${id}/tiles/WebMercatorQuad/`;
-const NDWI = "&assets=B03&assets=B08&assets=B02&expression=(B03-B08)/(B03%2BB08);B02;B08&asset_as_band=true&rescale=-1,1&rescale=0,4000&rescale=0,6000";   // R = NDWI, G = azul (nubes), B = infrarrojo
+const IDX = "&assets=B03&assets=B08&assets=B11&assets=SCL&expression=(B03-B11)/(B03%2BB11);(B03-B08)/(B03%2BB08);SCL&asset_as_band=true&rescale=-1,1&rescale=-1,1&rescale=0,255";   // R = MNDWI, G = NDWI, B = clase SCL de la escena
 
 /* clases SCL de Sentinel-2: 6 agua, 3 sombra, 8-10 nube, 0 sin dato. c = clases de un cuadrado n×n (n impar) centrado en el punto */
 function clasifica(c, n) {
@@ -508,7 +479,7 @@ function defecto() {
 const etq = f => `${fdia(f.f)}${f.e ? " · " + ESTF[f.e][0] : ""} · nubes ${f.nub} %`;
 
 function clip() {
-  if (!C.capas[1]) return;
+  if (!(C.capas[1] && C.sat)) { for (const n of ["fotoB", "agua"]) map.getPane(n).style.clip = ""; return; }   // sin satélite el agua se ve en todo el mapa
   const s = map.getSize(), x = s.x * C.v / 100, a = map.containerPointToLayerPoint([0, 0]), b = map.containerPointToLayerPoint([s.x, s.y]), m = map.containerPointToLayerPoint([x, 0]);
   for (const n of ["fotoB", "agua"]) map.getPane(n).style.clip = `rect(${a.y}px,${b.x}px,${b.y}px,${m.x}px)`;   // el agua nueva va solo del lado "después"
   const ln = $("#cmp-line"); ln.style.left = x + "px"; ln.setAttribute("aria-valuenow", Math.round(C.v));
@@ -518,22 +489,28 @@ function marca() {
   $$("#c-fotos .ft").forEach(b => b.classList.toggle("sel", +b.dataset.i === C.A || +b.dataset.i === C.B));
   if (C.capas[1]) { $("#cmp-a").value = C.A; $("#cmp-b").value = C.B; }
 }
-/* ——— agua nueva: NDWI de Sentinel-2 (10 m) en la fecha "después" contra la fecha "antes", calculado en el navegador ——— */
+/* ——— agua nueva: MNDWI y clasificación SCL de Sentinel-2 (10 a 20 m) en la fecha "después" contra la fecha "antes", calculado en el navegador ——— */
 const lim = (() => { let n = 0; const q = []; const sig = () => { if (n < 3 && q.length) { n++; q.shift()(); } }; return f => new Promise((ok, no) => { q.push(() => f().then(ok, no).finally(() => setTimeout(() => { n--; sig(); }, 150))); sig(); }); })();   // 3 a la vez y 150 ms entre pedidos: un servicio público no tiene por qué banearnos
-async function pix(id, c, k = 0) {                                                               // 256×256 RGBA del NDWI de ese día en ese tile
+async function pix(id, c, k = 0) {                                                               // 256×256 RGBA de los índices de ese día en ese tile
   try {
-    const r = await lim(() => fetch(`${MT(id)}${c.z}/${c.x}/${c.y}@1x.png?collection=sentinel-2-l2a${NDWI}`)); if (!r.ok) throw Error(r.status);
+    const r = await lim(() => fetch(`${MT(id)}${c.z}/${c.x}/${c.y}@1x.png?collection=sentinel-2-l2a${IDX}`)); if (!r.ok) throw Error(r.status);
     const b = await createImageBitmap(await r.blob()), cv = new OffscreenCanvas(256, 256), x = cv.getContext("2d", { willReadFrequently: true }); x.drawImage(b, 0, 0);
     return x.getImageData(0, 0, 256, 256).data;
   } catch (e) { if (k < 2) { await new Promise(f => setTimeout(f, 700 * (k + 1))); return pix(id, c, k + 1); } return null; }
 }
-// clases: 0 sin dato, 1 tierra, 2 agua, 3 nube o bruma. NDWI > 0,05 y no brillante en azul
-const clase = (d, i) => !d[i + 3] ? 0 : d[i + 1] * 4000 / 255 > 1800 && d[i] / 127.5 - 1 < .1 ? 3 : d[i] / 127.5 - 1 > .05 ? 2 : 1;
-function pinta(a, b, out) {                                                                      // a = antes, b = después (RGBA del NDWI); out = RGBA de salida
+// clases: 0 sin dato, 1 tierra, 2 agua, 3 nube o sombra. Agua: MNDWI > 0,2 con NDWI > −0,05, o agua según la escena (SCL 6) con MNDWI > 0
+// ponytail: umbrales fijos sin validar contra un mapa real; ajustarlos con las activaciones de CONAE o EMS
+const clase = (d, i) => { const s = d[i + 2], w = d[i] / 127.5 - 1, n = d[i + 1] / 127.5 - 1;
+  if (!d[i + 3] || s === 0 || s === 1) return 0; if (s === 8 || s === 9) return 3;
+  if (w > .2 && n > -.05 || s === 6 && w > 0) return 2; return s === 3 || s === 10 ? 3 : 1; };
+function pinta(a, b, out) {                                                                      // a = antes, b = después (RGBA de índices); out = RGBA de salida
+  const K = new Uint8Array(65536); if (b) for (let j = 0; j < 65536; j++) K[j] = clase(b, j * 4);
   for (let y = 0, i = 0; y < 256; y++) for (let x = 0; x < 256; x++, i += 4) {
-    const cb = b ? clase(b, i) : 0, ca = a ? clase(a, i) : 0; let r, g, bl, al = 0;
+    const cb = K[i >> 2], ca = a ? clase(a, i) : 0; let r, g, bl, al = 0;
     if (cb === 2) {
-      const nuevo = ca === 1 && b[i] - a[i] > 13;                                                // 13 ≈ 0,1 de NDWI
+      let v = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < 256 && xx >= 0 && xx < 256 && K[yy * 256 + xx] === 2) v++; }
+      if (v < 3) continue;                                                                       // píxel de agua suelto: ruido, se descarta
+      const nuevo = ca === 1 && b[i] - a[i] > 19;                                                // 19 ≈ 0,15 de MNDWI
       [r, g, bl, al] = nuevo ? [0, 70, 255, 190] : ca === 2 ? [90, 170, 255, 90] : ca === 1 ? [90, 170, 255, 90] : [60, 130, 255, 130];
     } else if (cb === 0 || cb === 3) { if (((x + y) >> 2) & 1) [r, g, bl, al] = [90, 90, 90, 90]; }   // rayado gris: sin dato
     const o = i; out[o] = r; out[o + 1] = g; out[o + 2] = bl; out[o + 3] = al;
@@ -550,17 +527,24 @@ const Agua = L.GridLayer.extend({
 });
 async function mostrar() {
   const n = ++C.n; let ida, idb;
-  try { [ida, idb] = await Promise.all([mosaico(C.fotos[C.A].f), mosaico(C.fotos[C.B].f)]); } catch { toast("No se pudieron preparar las fotos del satélite. Probá de nuevo en unos minutos."); return; }
+  carga("buscar", 1);
+  try { [ida, idb] = await Promise.all([mosaico(C.fotos[C.A].f), mosaico(C.fotos[C.B].f)]); } catch { toast("No se pudieron preparar las fotos del satélite. Probá de nuevo en unos minutos."); return; } finally { carga("buscar", 0); }
   if (n !== C.n) return;
   C.capas.forEach(l => l && map.removeLayer(l)); C.agua && map.removeLayer(C.agua);
-  C.capas = [ida, idb].map((id, k) => L.tileLayer(`${MT(id)}{z}/{x}/{y}@1x.png?collection=sentinel-2-l2a&assets=visual&asset_bidx=visual%7C1,2,3`,
-    { pane: k ? "fotoB" : "fotoA", minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, updateWhenZooming: false, updateInterval: 300, errorTileUrl: VACIO, attribution: k ? "" : "Sentinel-2 © ESA/Copernicus, vía Microsoft Planetary Computer" }).addTo(map));
+  C.capas = [ida, idb].map((id, k) => vigila(L.tileLayer(`${MT(id)}{z}/{x}/{y}@1x.png?collection=sentinel-2-l2a&assets=visual&asset_bidx=visual%7C1,2,3`,
+    { pane: k ? "fotoB" : "fotoA", minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, updateWhenZooming: false, updateInterval: 300, errorTileUrl: VACIO, attribution: k ? "" : "Sentinel-2 © ESA/Copernicus, vía Microsoft Planetary Computer" })));
   C.agua = new Agua({ pane: "agua", a: ida, b: idb, minZoom: 9, minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, attribution: "Agua nueva: cálculo propio sobre Sentinel-2" });
+  C.agua.on("loading", () => carga("agua", 1)).on("load remove", () => carga("agua", 0));
   if (on.cam) C.agua.addTo(map);
-  const ln = $("#cmp-line"); $("#cmp").hidden = ln.hidden = false; document.body.classList.add("fotos");
+  const ln = $("#cmp-line"); $("#cmp").hidden = false; document.body.classList.add("fotos"); satEstado();
   $(".l", ln).textContent = "Antes · " + fdia(C.fotos[C.A].f); $(".r", ln).textContent = "Después · " + fdia(C.fotos[C.B].f);
   $("#leyenda-f").textContent = `Agua nueva: aparece el ${fdia(C.fotos[C.B].f)} y no estaba el ${fdia(C.fotos[C.A].f)}`;
   marca(); clip();
+}
+function satEstado() {                                                                            // el satélite se oculta y se vuelve a mostrar; el agua queda
+  C.capas.forEach(l => l && (C.sat ? l.addTo(map) : map.removeLayer(l)));
+  $("#cmp-line").hidden = !C.sat; const b = $("#cmp-x"); b.textContent = C.sat ? "Ocultar satélite" : "Ver satélite"; b.setAttribute("aria-pressed", !C.sat);
+  clip();
 }
 function camEstado() { if (C.agua) on.cam ? C.agua.addTo(map) : map.removeLayer(C.agua); $("#leyenda").hidden = !on.cam; }
 function cerrar() {
@@ -593,7 +577,7 @@ async function casa(lat, lon, t) {
   cerrar(); C.key = lat + "," + lon; C.toco = false; C.mide = true; C.fotos = [];
   const vivo = () => t === tokZ;
   pronostico(lat, lon, vivo);
-  let fs; try { fs = await una("f" + C.key, () => fotos(lat, lon)); } catch { fs = null; }
+  carga("buscar", 1); let fs; try { fs = await una("f" + C.key, () => fotos(lat, lon)); } catch { fs = null; } finally { carga("buscar", 0); }
   if (!vivo()) return;
   if (!fs) { C.mide = false; $("#c-ahora").innerHTML = '<span class="pill">Sin conexión con el satélite</span><p class="nota">No pudimos consultar las fotos ahora. Probá de nuevo en unos minutos.</p>'; $("#c-fotos").innerHTML = '<p class="mut">No disponibles.</p>'; return; }
   const k = f => C.key + f.id;
@@ -619,7 +603,7 @@ $("#zona").addEventListener("click", e => {
 });
 $("#cmp-a").onchange = e => { C.toco = true; C.A = +e.target.value; mostrar(); };
 $("#cmp-b").onchange = e => { C.toco = true; C.B = +e.target.value; mostrar(); };
-$("#cmp-x").onclick = cerrar;
+$("#cmp-x").onclick = () => { C.sat = !C.sat; satEstado(); };
 { // arrastrar la línea (o flechas del teclado) para comparar
   const ln = $("#cmp-line"), pon = v => { C.v = Math.max(3, Math.min(97, v)); clip(); };
   ln.addEventListener("pointerdown", e => { ln.setPointerCapture(e.pointerId); ln.dataset.d = 1; });
@@ -703,8 +687,8 @@ function tour() {
     ["#radio", "Elegí el radio", "Define cuánto alrededor querés mirar: 5, 10 o 25 km."],
     [m ? "#tabs" : "#panel", "Secciones", "Resumen de tu zona, Prensa, Ríos, Alertas, Videos y Enviar. Cada una tiene un “¿Cómo se lee esto?” arriba."],
     ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. «Agua nueva» marca en azul lo que se inundó entre las dos fechas. «Mapa» esconde los paneles. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
-    ["#player", "Línea de tiempo del satélite", "Mové la fecha o apretá ▶ para ver las pasadas. Entre una pasada y otra no hay datos y no se inventa nada."],
-    ["#strip", "Aviso permanente", "Es información automática y no oficial. Ante una emergencia, llamá al 911."],
+    ["#cmp", "Antes y después", "Elegí las dos fechas. «Ocultar satélite» deja el mapa de calles con el agua marcada encima, y «Ver satélite» la vuelve a mostrar."],
+    ["#strip", "Aviso", "Es información automática y no oficial. Ante una emergencia, llamá al 911. Podés cerrarlo con ×; el detalle queda en «Aviso», arriba."],
   ].filter(p => { const el = $(p[0]); return el && el.getClientRects().length; });
   if (!pasos.length) return;
   if (m) document.body.classList.remove("sheet-open");
@@ -741,6 +725,13 @@ function autotest() {
   const sc = (f, n = 5) => Uint8Array.from({ length: n * n }, (_, i) => f(i % n, i / n | 0));
   console.assert(clasifica(sc(() => 6), 5).e === "agua" && clasifica(sc(() => 4), 5).e === "seco" && clasifica(sc(() => 9), 5).e === "nube" && clasifica(sc(() => 0), 5).e === "nd", "clasifica: casos puros");
   console.assert(clasifica(sc((x, y) => x === 0 ? 6 : 4), 5).e === "cerca" && clasifica(sc((x, y) => x === 0 ? 6 : 4), 5).pct === 20, "clasifica: agua al costado = cerca");
+  const ix = (w, n, s) => Uint8ClampedArray.of((w + 1) * 127.5, (n + 1) * 127.5, s, 255);
+  console.assert(clase(ix(.5, .3, 4), 0) === 2 && clase(ix(-.3, -.4, 4), 0) === 1 && clase(ix(.4, .1, 9), 0) === 3 && clase(ix(0, 0, 0), 0) === 0 && clase(ix(.05, 0, 6), 0) === 2, "clase");
+  const pa = new Uint8ClampedArray(262144), pb = new Uint8ClampedArray(262144), po = new Uint8ClampedArray(262144);
+  for (let i = 0; i < 262144; i += 4) { pa.set(ix(-.3, -.4, 4), i); pb.set(ix(-.3, -.4, 4), i); }
+  pb.set(ix(.5, .3, 4), 0); pinta(pa, pb, po); console.assert(!po[3], "pinta: píxel suelto descartado");
+  for (let y = 100; y < 110; y++) for (let x = 100; x < 110; x++) pb.set(ix(.5, .3, 4), (y * 256 + x) * 4);
+  pinta(pa, pb, po); console.assert(po[(105 * 256 + 105) * 4 + 3] === 190, "pinta: mancha nueva marcada");
   console.assert(pct([1, 2, 3, 4], 3) === 50 && pct([], 1) !== pct([], 1), "pct");
   console.log("autotest ok"); document.title = "autotest ok";
 }
@@ -766,11 +757,11 @@ if (location.search === "?test") autotest();
   const h = /z=(-?[\d.]+),(-?[\d.]+),(\d+)(&ap=1)?(?:&n=(.*))?/.exec(location.hash);
   if (h && [5, 10, 25].includes(+h[3])) { let n = "Punto en el mapa"; try { n = decodeURIComponent(h[5] || n).slice(0, 60); } catch { } q.value = ["Punto en el mapa", "Mi ubicación", "Mi dirección"].includes(n) ? "" : n; setZona(+h[1], +h[2], n, +h[3], !!h[4]); }
   else inicio();
-  $(".ayuda").open = true; setTimeout(tour, 1200);                                               // el recorrido sale siempre; "Saltar" lo cierra
+  if (!store.get("tour-ok")) { $(".ayuda").open = true; setTimeout(tour, 1200); }                // el recorrido sale la primera vez; "?" lo repite
 })();
 async function inicio() {                                                                        // arranca en antes y después, sobre Resistencia–Corrientes
   ir(-27.462, -58.87, 14);
-  let fs; try { fs = await una("f-inicio", () => fotos(-27.462, -58.87)); } catch { return toast("No se pudo consultar el satélite. Probá recargar en unos minutos."); }
+  carga("buscar", 1); let fs; try { fs = await una("f-inicio", () => fotos(-27.462, -58.87)); } catch { return toast("No se pudo consultar el satélite. Probá recargar en unos minutos."); } finally { carga("buscar", 0); }
   if (C.key || !fs.length) return;                                                               // el usuario ya eligió una zona
   C.fotos = fs; [C.A, C.B] = defecto(); opciones(); C.v = V0(); mostrar();
 }

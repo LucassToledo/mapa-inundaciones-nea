@@ -33,19 +33,21 @@ Agregar `?test` a la URL corre un chequeo de la geometría del cálculo de agua.
 
 ## Cómo funciona lo importante
 
-- **Agua nueva** (`app.js`): el navegador pide a Microsoft Planetary Computer los mosaicos Sentinel-2 L2A de dos fechas, calcula NDWI por píxel en un canvas y clasifica: 0 sin dato, 1 tierra, 2 agua, 3 nube. «Agua nueva» = agua en «Después», tierra en «Antes» y salto de NDWI mayor a unos 0,1. Los umbrales **no están validados** contra un mapa real.
+- **Agua nueva** (`app.js`): el navegador pide a Microsoft Planetary Computer los mosaicos Sentinel-2 L2A de dos fechas, calcula por píxel en un canvas MNDWI (B03 contra B11), NDWI (B03 contra B08) y la clase de escena SCL, y clasifica en `clase()`: 0 sin dato, 1 tierra, 2 agua, 3 nube o sombra. Agua: MNDWI > 0,2 con NDWI > −0,05, o SCL 6 con MNDWI > 0. Se descartan píxeles de agua con menos de 3 vecinos con agua. «Agua nueva» = agua en «Después», tierra en «Antes» y salto de MNDWI mayor a 0,15. Los umbrales **no están validados** contra un mapa real (ver fase 1 del plan). El agua se ve también con el satélite oculto («Ocultar satélite» / «Ver satélite»).
 - **Foto HD**: botón apagado al inicio. Es un WMS 1.3.0 del IGN (`imagenes.ign.gob.ar/geoserver`) con ortomosaicos de **archivo** de 2011 a 2021, de unos 0,4 m por píxel. No tiene CORS: se muestra en `<img>`, no se puede leer en canvas. Se pide con `image/vnd.jpeg-png` (54 KB por tesela contra 622 KB en PNG).
 - **Límites del mapa**: `CFG.bounds` (San Fernando) y `CFG.limites` (`maxBounds`) en `app.js`. No ampliarlos sin motivo: cada vista extra son más mosaicos pedidos a terceros.
 - **Panes de Leaflet** por z-index: fotoA 240, fotoB 241, hd 243, agua 246. Respetar ese orden.
 - **Limitador de peticiones**: máximo 3 simultáneas con 150 ms entre cada una. Planetary Computer rechaza con `ERR_HTTP2_SERVER_REFUSED_STREAM` si se lo satura.
-- **Arranque**: siempre en modo comparación Antes/Después, recorrido guiado en cada ingreso, capa de alertas SMN apagada.
+- **Arranque**: siempre en modo comparación Antes/Después, recorrido guiado solo la primera vez («?» lo repite), capa de alertas SMN apagada.
+- **Carga**: `carga(clave, on)` muestra «Cargando mapa…» o «Calculando el agua…» mientras alguna capa vigilada (`vigila()`) está cargando.
+- **PC**: columna izquierda `#izq` (encabezado, Antes/Después, capas) y panel derecho. En el centro solo el mapa. El radar GFM muestra siempre la pasada más reciente; no hay línea de tiempo.
 
 ## Reglas que no se negocian
 
 1. **No inventar agua.** Nunca interpolar entre pasadas ni usar imágenes sintéticas o de IA.
 2. **Sin dato no es sin agua.** Las nubes se rayan en gris y el texto lo dice.
 3. **Cada capa muestra fecha, sensor y resolución.** Una imagen de archivo jamás se presenta como actual: la Foto HD lleva aviso permanente.
-4. **Aviso «Información automática y NO oficial. Ante una emergencia llamá al 911»** siempre visible.
+4. **Aviso «Información automática y NO oficial. Ante una emergencia llamá al 911»** visible al entrar. Se puede cerrar con ×, y el texto completo queda en el enlace «Aviso» del encabezado. Ningún aviso es permanente y ninguna acción queda sin vuelta atrás.
 5. **Prensa se publica sin revisión** (con aviso). **Videos y reportes de usuarios solo tras revisión humana.** Nada se aprueba solo.
 6. **Cita del IGN obligatoria** en la Foto HD: «FUENTE: Instituto Geográfico Nacional de la República Argentina». No alterar la imagen.
 7. **Resolución mínima pedida por el dueño: 1 m por píxel o mejor.** Mostrar algo de 10 m como imagen principal fue rechazado dos veces. Hoy no existe fuente gratuita y reciente de esa resolución; está documentado en `investigacion/10-plan-de-mejora.md`. No lo vuelvas a «resolver» con una capa que no cumpla.
@@ -70,7 +72,7 @@ Mandar ráfagas hace que te bloqueen por bot. Siempre: peticiones **secuenciales
 - Un error 403 en la consola sin identificar (posiblemente teselas de OpenStreetMap o EODC).
 - `ERR_HTTP2_SERVER_REFUSED_STREAM` de Planetary Computer con muchas teselas; el limitador lo reduce y falta medirlo con tráfico real.
 - Falta confirmar con el IGN si publicar su WMS en un sitio requiere autorización.
-- Leyenda, recorrido y PDF todavía mencionan solo «10 m» y no la Foto HD.
+- El PDF todavía menciona NDWI y «10 m»; la leyenda y el recorrido ya están al día.
 - Sin probar en celulares reales de gama baja ni en 3G.
 - Aviso legal sin revisión jurídica.
 
