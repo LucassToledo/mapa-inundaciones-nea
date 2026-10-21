@@ -38,7 +38,7 @@ th{background:#eaf1fa;color:#13355f}
 </section>
 
 <h2>1. Resumen</h2>
-<p>El mapa de inundaciones del Chaco y el NEA es un sitio web público que reúne en una sola pantalla las fuentes abiertas disponibles durante una emergencia hídrica: fotos satelitales de Sentinel-2 por fecha para comparar el antes y el después, imágenes de radar del satélite Sentinel-1 procesadas por Copernicus, un pronóstico mensual del río, alturas de los ríos del INA contra sus cotas de alerta, avisos del Servicio Meteorológico Nacional, noticias de prensa ubicadas por localidad y videos que circulan, con su fecha.</p>
+<p>El mapa de inundaciones del Chaco y el NEA es un sitio web público que reúne en una sola pantalla las fuentes abiertas disponibles durante una emergencia hídrica: fotos satelitales de Sentinel-2 por fecha para comparar el antes y el después, imágenes de radar del satélite Sentinel-1 procesadas por Copernicus, un pronóstico mensual del río, alturas de los ríos del INA contra sus cotas de alerta, avisos del Servicio Meteorológico Nacional, noticias de prensa ubicadas por localidad y videos que circulan, con su fecha. Desde esta versión suma una capa de foto HD de archivo, con calles y casas visibles, y un modo «Mapa» que esconde los paneles.</p>
 <p>La persona escribe su dirección o su localidad. El sitio le responde si hay agua sobre ese punto según la última foto satelital clara, le muestra las fotos de los últimos 75 días para compararlas con una barra deslizable y le dice si el río modelado estará alto en los próximos meses. Elige además un radio de 5, 10 o 25 km y el mapa muestra cuántos kilómetros cuadrados de agua detectó el satélite en esa zona, de qué día es la pasada y cómo cambió respecto de la anterior. Funciona en el navegador del celular, no pide registro y no necesita servidor propio para la parte de consulta.</p>
 <p>Se solicita al ICCTI un subdominio con HTTPS para publicar los archivos estáticos y, si es posible, un proceso Python liviano para recibir y moderar los reportes de los usuarios. Las secciones 8 y 9 detallan los requisitos y lo que queda pendiente.</p>
 
@@ -99,11 +99,19 @@ th{background:#eaf1fa;color:#13355f}
 <p>En pantallas angostas el panel pasa a una hoja inferior que se desliza, y el mapa queda visible por encima.</p>
 <figure class="cel"><img src="img/10-celular.png"><figcaption>Figura 12. Vista en un celular de 390 px de ancho.</figcaption></figure>
 
+<h3>3.12 Foto HD de archivo y modo solo mapa</h3>
+<p>Las fotos Sentinel-2 tienen 10 metros por píxel: sirven para ver agua extensa, pero no distinguen una casa ni una calle. Para decidir una evacuación hace falta ver el terreno con más detalle, y ninguna fuente gratuita ofrece fotos recientes de menos de 10 metros para esta región. El botón <b>Foto HD</b> agrega como referencia una capa de archivo de Esri (World Imagery), con hasta 30 a 50 centímetros por píxel según el lugar. En Itatí se ven las manzanas, los techos y las calles de tierra (Figura 13).</p>
+<figure><img src="img/13-foto-hd.png"><figcaption>Figura 13. Foto HD de archivo sobre Itatí, con la ficha que indica fecha, resolución y crédito. La capa de agua detectada por radar sigue por encima de la foto cuando está activada.</figcaption></figure>
+<p>Esa capa <b>no muestra el agua de hoy</b>. Es una imagen de archivo cuya fecha cambia según el punto: en la prueba iba de enero de 2017 a febrero de 2026, y la ficha de la pantalla indica siempre el rango de fechas y la mejor resolución disponible en la vista. Por eso se separa de las fotos recientes, se avisa en la ficha y en el aviso legal, y un enlace vuelve a las fotos recientes. Sirve para saber qué hay en el terreno (calles, casas, escuelas, caminos altos) y, combinada con el agua del radar, para pensar rutas y puntos de reunión. En zonas rurales el zoom máximo real de la capa es menor que en las ciudades.</p>
+<p>Para quien solo quiere mirar el mapa, cada panel tiene una flecha que lo achica a su barra, y el botón <b>Mapa</b> del dock esconde todos los paneles. Quedan visibles el aviso permanente, el dock y la ficha de la foto HD, y un botón «Mostrar paneles» devuelve todo (Figura 14).</p>
+<figure><img src="img/15-solo-mapa.png"><figcaption>Figura 14. Modo Mapa: sin paneles, con la foto HD a nivel de calle. La nitidez de la captura está limitada por la bruma del propio archivo de Esri.</figcaption></figure>
+
 <h2>4. Fuentes de datos</h2>
 <table>
 <tr><th>Dato</th><th>Fuente</th><th>Cómo se obtiene</th><th>Licencia o condición</th></tr>
 <tr><td>Agua detectada</td><td>Copernicus Global Flood Monitoring, vía el servicio de mosaicos del EODC</td><td>El navegador pide los mosaicos y cuenta los píxeles de agua</td><td>Datos abiertos de Copernicus. Servicio de terceros, sin garantía de disponibilidad</td></tr>
 <tr><td>Fotos por fecha</td><td>Sentinel-2 L2A (ESA, Copernicus), servido por Microsoft Planetary Computer</td><td>El navegador consulta el catálogo STAC y pide los mosaicos de cada fecha, sin clave</td><td>Datos abiertos de Copernicus. Servicio de terceros, sin garantía de disponibilidad</td></tr>
+<tr><td>Foto HD de archivo</td><td>Esri World Imagery (Maxar, Earthstar Geographics y colaboradores)</td><td>El navegador pide los mosaicos a services.arcgisonline.com, sin clave. Se limita a zoom 17 y se muestra fecha y resolución de cada zona</td><td>Los términos de Esri exigen atribución y limitan el uso. Para un uso institucional conviene una clave gratuita de ArcGIS Location Platform y consultar los términos con Esri</td></tr>
 <tr><td>Pronóstico mensual</td><td>Open-Meteo: Flood API (modelo GloFAS v4) y Seasonal API</td><td>El navegador consulta el caudal pronosticado y la historia desde 1984</td><td>Gratis solo para uso no comercial. Un uso institucional con mucho tráfico requiere consultar a Open-Meteo</td></tr>
 <tr><td>Alturas de ríos</td><td>INA</td><td>Script de actualización</td><td>El INA no declara licencia. Conviene consultarla antes de un uso institucional amplio</td></tr>
 <tr><td>Alertas</td><td>Servicio Meteorológico Nacional</td><td>Script de actualización</td><td>CC BY 4.0, con atribución en el sitio</td></tr>
@@ -121,6 +129,7 @@ th{background:#eaf1fa;color:#13355f}
 <li>Las cifras son estimaciones. El sitio lo dice en el panel y en el aviso legal.</li>
 <li>Fotos Sentinel-2: el satélite pasa cada 2 a 5 días, y en octubre de 2026 muchas escenas del NEA tenían más del 70 % de nubes. El sitio dice «sin agua» solo con una foto clara. La clasificación de escena puede confundir una sombra o un techo oscuro con agua, y el recuadro de 300 m alrededor del punto es una muestra, no un mapa de la manzana.</li>
 <li>Pronóstico: usa una grilla de unos 5 km que se ajusta al río modelado más cercano, que puede ser otro cauce. Un punto de Resistencia cae sobre un riachuelo de unos 374 m³/s, mientras el Paraná, a 10 km, lleva unos 25.000 m³/s. El sitio muestra la distancia al cauce y avisa cuando supera los 10 km. No incluye el relieve ni las defensas, así que no prueba que el agua llegue o no a una casa.</li>
+<li>Foto HD: es imagen de archivo de meses o años atrás, de fuente comercial. No sirve para saber dónde hay agua hoy. En zonas rurales Esri no tiene imagen por encima de cierto zoom, por eso la capa se limita al zoom 17. El sitio no puede saber cuál de varias imágenes se dibuja en cada punto, así que muestra el rango de fechas de la zona y la mejor resolución, no la fecha de cada píxel.</li>
 <li>Resistencia da 0,0 km² con cobertura completa en la pasada del 13 de octubre. El resultado es plausible, pero no se contrastó con otra fuente.</li>
 </ul>
 
@@ -141,7 +150,7 @@ th{background:#eaf1fa;color:#13355f}
 <ul>
 <li>No hay cuentas ni registro. El sitio no usa cookies de seguimiento ni herramientas de analítica propias. La tipografía (Google Fonts) y las bibliotecas Leaflet y Motion se cargan desde servidores de terceros, que ven la dirección IP de quien visita. Para evitarlo, esos archivos se pueden copiar al servidor del ICCTI.</li>
 <li>La ubicación del dispositivo se usa solo si la persona toca el botón de ubicación. Las direcciones y la ubicación se redondean a dos decimales (unos 1100 metros) antes de ponerlas en un enlace compartible, que lleva el nombre genérico «Mi dirección» y nunca el texto escrito.</li>
-<li>Al abrir una zona, las coordenadas exactas viajan desde el navegador a Microsoft Planetary Computer y a Open-Meteo, que también ven la dirección IP. El texto de una dirección se envía a OpenStreetMap (Nominatim) solo cuando la persona aprieta Enter. El aviso legal del sitio lo explica. El sitio no guarda direcciones en ningún servidor propio.</li>
+<li>Al activar la foto HD, el navegador pide mosaicos a Esri, que ve la dirección IP y la zona visible. Al abrir una zona, las coordenadas exactas viajan desde el navegador a Microsoft Planetary Computer y a Open-Meteo, que también ven la dirección IP. El texto de una dirección se envía a OpenStreetMap (Nominatim) solo cuando la persona aprieta Enter. El aviso legal del sitio lo explica. El sitio no guarda direcciones en ningún servidor propio.</li>
 <li>El contacto del formulario es opcional y solo lo ve el moderador.</li>
 <li>El servidor de reportes limita el cuerpo a 4000 bytes, acota el largo de cada campo, valida la fecha y el enlace, incluye un campo trampa contra bots y admite 5 envíos por dirección IP por hora. Guarda de cada envío un resumen irreversible de la IP, no la IP.</li>
 <li>El panel de moderación exige una clave larga definida por el administrador. Los archivos de base de datos y de código no se sirven por la web.</li>
@@ -166,11 +175,12 @@ th{background:#eaf1fa;color:#13355f}
 <tr><td>Videos</td><td>Lista vacía. Requiere una persona que revise y cargue.</td></tr>
 <tr><td>Fotos y pronóstico</td><td>Probados en computadora y en celular emulado con Itatí, el río Uruguay y Resistencia. Dependen de dos servicios de terceros (Planetary Computer y Open-Meteo) sin acuerdo de uso con el ICCTI. No se midió el peso de las fotos en 3G.</td></tr>
 <tr><td>Clasificación de agua en fotos</td><td>No se validó contra una inundación real observada. Queda pendiente compararla con un mapa de la Carta Internacional.</td></tr>
+<tr><td>Foto HD y modo Mapa</td><td>Probados en computadora y en celular emulado con Itatí y Resistencia. Los términos de uso de Esri para un organismo público no se consultaron. Los servicios de terceros rechazaron peticiones cuando se abrían muchas zonas seguidas, y el sitio sigue funcionando sin esas capas.</td></tr>
 <tr><td>Mapa base</td><td>Usa los mosaicos públicos de OpenStreetMap, que no están pensados para mucho tráfico.</td></tr>
 <tr><td>Cobertura de datos</td><td>Hay datos en la caja entre 29,1° y 23,9° de latitud sur y entre 62,9° y 57,2° de longitud oeste. El mapa permite navegar toda Argentina, pero fuera de esa caja no hay datos.</td></tr>
 <tr><td>Certificados</td><td>Los sitios del INA, el SMN y chacodiapordia tenían certificados vencidos al momento de la prueba. El script reintenta sin verificar el certificado para esas lecturas públicas. Conviene avisar a esos organismos.</td></tr>
 <tr><td>Aspectos legales</td><td>El aviso legal no tuvo revisión jurídica. La licencia de los datos del INA no está declarada.</td></tr>
-<tr><td>Funciones futuras</td><td>Relieve y altimetría, vista operativa para Defensa Civil, pronóstico del INA, vista pública de reportes aprobados.</td></tr>
+<tr><td>Funciones futuras</td><td>Relieve y altimetría, comparación de la foto HD contra la foto reciente, vista operativa para Defensa Civil, rutas y puntos de reunión, pronóstico del INA, vista pública de reportes aprobados.</td></tr>
 </table>
 
 <h2>10. Solicitud al ICCTI</h2>

@@ -7,6 +7,7 @@ const CFG = {
   email: "",                   // alternativa: abre el correo del usuario
   api: "api/envios",
   bounds: [[-29.1, -62.9], [-23.9, -57.2]],
+  esriKey: "",                 // clave gratis de ArcGIS Location Platform: sin ella la foto HD funciona pero Esri puede limitarla si el tráfico es alto
 };
 const M = window.Motion;
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -84,7 +85,12 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, att
 map.createPane("gfm").style.zIndex = 250;
 const G = {}; ["est", "gfm", "pre", "ale", "vid", "zona"].forEach(k => G[k] = L.layerGroup().addTo(map));
 const sheetPx = () => document.body.classList.contains("sheet-open") ? Math.min(innerHeight * .52, 460) : 92;
-const pad = () => innerWidth > 800 ? { paddingTopLeft: [16, 190], paddingBottomRight: [440, 100] } : { paddingTopLeft: [10, 170], paddingBottomRight: [10, sheetPx() + (document.body.classList.contains("sheet-open") ? 24 : 150)] };
+const BC = document.body.classList;
+const pad = () => {
+  const so = BC.contains("solo"), tm = BC.contains("top-min");
+  if (innerWidth > 800) return { paddingTopLeft: [16, so ? 70 : tm ? 120 : 190], paddingBottomRight: [so || BC.contains("panel-min") ? 16 : 440, 100] };
+  return { paddingTopLeft: [10, so ? 70 : tm ? 110 : 170], paddingBottomRight: [10, so ? 100 : sheetPx() + (BC.contains("sheet-open") ? 24 : 150)] };
+};
 const fit = (b, mz = 14) => (reduce ? map.fitBounds(b, { ...pad(), maxZoom: mz }) : map.flyToBounds(b, { ...pad(), maxZoom: mz, duration: .9 }));
 const ir = (lat, lon, r = 3) => fit(L.latLng(lat, lon).toBounds(r * 1000));
 map.fitBounds(CFG.bounds, pad());
@@ -93,7 +99,7 @@ map.fitBounds(CFG.bounds, pad());
 function tab(p, abrir = true) {
   $$("#tabs [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.p === p));
   $$(".panel").forEach(s => s.hidden = s.id !== "p-" + p);
-  if (abrir) document.body.classList.add("sheet-open");
+  if (abrir) { document.body.classList.add("sheet-open"); document.body.classList.remove("panel-min"); }
   entra($$(`#p-${p} .card`).slice(0, 12), 0, false);
 }
 $("#tabs").addEventListener("click", e => { const b = e.target.closest("[role=tab]"); if (b) tab(b.dataset.p); });
@@ -111,12 +117,19 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches(".est[data-id]")) { e.preventDefault(); e.target.click(); } });
 
 /* ——— capas (dock) ——— */
-const on = { est: 1, gfm: 1, pre: 1, ale: 1, vid: 1 };
-$$(".dk").forEach(b => b.addEventListener("click", () => {
+const on = { est: 1, gfm: 1, pre: 1, ale: 1, vid: 1, hd: 0 };
+$$(".dk[data-l]").forEach(b => b.addEventListener("click", () => {
   const l = b.dataset.l; on[l] = !on[l]; b.setAttribute("aria-pressed", !!on[l]);
   on[l] ? map.addLayer(G[l]) : map.removeLayer(G[l]);
   if (l === "gfm") $("#player").hidden = !on.gfm || !D.gfm.length;
+  if (l === "hd") hdEstado();
 }));
+{ // minimizar encabezado y panel, y modo solo mapa
+  const alt = (id, cls) => $(id).addEventListener("click", e => { const v = BC.toggle(cls); e.currentTarget.setAttribute("aria-expanded", !v); e.currentTarget.title = v ? "Mostrar" : "Minimizar"; });
+  alt("#min-top", "top-min"); alt("#min-panel", "panel-min");
+  const solo = v => { BC.toggle("solo", v); $("#solo").setAttribute("aria-pressed", v); $("#solo-x").hidden = !v; if (v) BC.remove("sheet-open"); };
+  $("#solo").addEventListener("click", () => solo(!BC.contains("solo"))); $("#solo-x").addEventListener("click", () => solo(false));
+}
 const stamp = (id, iso) => {
   const el = $("#" + id); if (!el || !iso) return;
   const s = document.createElement("p"); s.className = "stamp" + ((Date.now() - P(iso)) > 12 * 36e5 ? " viejo" : "");
@@ -557,6 +570,37 @@ $("#cmp-x").onclick = cerrar;
   ln.addEventListener("keydown", e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); pon(C.v + (e.key === "ArrowLeft" ? -4 : 4)); } });
 }
 
+/* ——— foto HD de archivo (Esri World Imagery): calles y casas, con su fecha; no es el agua de hoy ——— */
+map.createPane("hd").style.zIndex = 245;                                                       // sobre las fotos Sentinel-2, bajo el agua del radar (250)
+const HD = { u: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/", n: 0, p: null, avisado: false };
+// ponytail: maxNativeZoom 17 porque en zonas rurales Esri devuelve un cartel "sin datos" desde el 18; en ciudades hay hasta el 19 y se pierde esa mejora
+G.hd = L.layerGroup([L.tileLayer(HD.u + "tile/{z}/{y}/{x}" + (CFG.esriKey ? "?token=" + CFG.esriKey : ""), { pane: "hd", maxNativeZoom: 17, maxZoom: 19, errorTileUrl: VACIO, attribution: "Imagen HD © Esri, Maxar, Earthstar Geographics" })]);
+async function hdMeta() {
+  const c = map.getCenter(); if (HD.p && hav(HD.p.lat, HD.p.lng, c.lat, c.lng) < 1.5 && $("#hd-t").textContent) return;
+  const n = ++HD.n; HD.p = c;
+  let a = null;
+  try {
+    const j = await ext(`${HD.u}4/query?f=json&geometry=${c.lng.toFixed(5)},${c.lat.toFixed(5)}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=SRC_DATE2,SRC_RES&returnGeometry=false${CFG.esriKey ? "&token=" + CFG.esriKey : ""}`);
+    a = j.features.map(f => f.attributes).filter(x => x.SRC_DATE2 && x.SRC_RES <= 1);            // solo fuentes HD con fecha (hay una de 15 m sin fecha)
+  } catch { /* se avisa abajo */ }
+  if (n !== HD.n || !on.hd) return;
+  if (!a || !a.length) { $("#hd-t").textContent = "Foto HD de archivo"; $("#hd-n").textContent = "No pudimos leer su fecha. No es una foto de hoy y no muestra el agua actual."; return; }
+  // Esri no dice cuál fuente se dibuja en cada zoom: se informa el rango de fechas de las fuentes HD del punto
+  const f = ms => new Date(ms).toLocaleDateString("es-AR", { timeZone: "UTC", month: "short", year: "numeric" }), t = a.map(x => x.SRC_DATE2), d0 = Math.min(...t), d1 = Math.max(...t);
+  const fe = f(d0) === f(d1) ? f(d0) : `entre ${f(d0)} y ${f(d1)}`, mejor = Math.min(...a.map(x => x.SRC_RES));
+  $("#hd-t").textContent = `Foto HD de archivo · ${fe} · hasta ${nf(mejor, 2)} m por píxel`;
+  $("#hd-n").textContent = `Tomada hace ${Math.max(1, Math.round((Date.now() - d1) / 2.63e9))} meses o más. Sirve para ver calles, casas y relieve, no el agua de hoy.`;
+}
+function hdEstado() {
+  BC.toggle("hd", !!on.hd); $("#hdinfo").hidden = !on.hd;
+  if (on.hd) { $("#hd-t").textContent = "Foto HD de archivo"; $("#hd-n").textContent = "Buscando la fecha de la foto…"; HD.p = null; hdMeta(); if (map.getZoom() < 14) toast("Acercá el mapa para ver la foto HD en detalle."); }
+}
+map.on("moveend", () => { if (on.hd) { clearTimeout(HD.t); HD.t = setTimeout(hdMeta, 600); } });
+map.on("zoomend", () => {
+  if (map.getZoom() >= 15 && !on.hd && !HD.avisado && C.capas[1]) { HD.avisado = true; toast("Las fotos Sentinel-2 son de 10 m por píxel y se ven borrosas de cerca. Para calles y casas, prendé «Foto HD» abajo.", 7000); }
+});
+$("#hd-x").addEventListener("click", () => $('.dk[data-l="hd"]').click());
+
 /* percentil de v dentro de un arreglo (% de valores menores) */
 const pct = (a, v) => a.length ? a.filter(x => x < v).length / a.length * 100 : NaN;
 const nivel = p => p >= 90 ? ["Muy alto", "r"] : p >= 75 ? ["Alto", "w"] : p >= 25 ? ["Normal", "ok"] : ["Bajo", ""];
@@ -631,7 +675,7 @@ function tour() {
     ["#buscar", "Poné tu dirección", "Escribí tu dirección con calle y ciudad y apretá Enter. También podés tocar ◎ para usar tu ubicación o 📍 para marcar un punto en el mapa."],
     ["#radio", "Elegí el radio", "Define cuánto alrededor querés mirar: 5, 10 o 25 km."],
     [m ? "#tabs" : "#panel", "Secciones", "Resumen de tu zona, Prensa, Ríos, Alertas, Videos y Enviar. Cada una tiene un “¿Cómo se lee esto?” arriba."],
-    ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
+    ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. «Foto HD» muestra una foto de archivo con calles y casas (con su fecha). «Mapa» esconde los paneles. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
     ["#player", "Línea de tiempo del satélite", "Mové la fecha o apretá ▶ para ver las pasadas. Entre una pasada y otra no hay datos y no se inventa nada."],
     ["#strip", "Aviso permanente", "Es información automática y no oficial. Ante una emergencia, llamá al 911."],
   ].filter(p => { const el = $(p[0]); return el && el.getClientRects().length; });
