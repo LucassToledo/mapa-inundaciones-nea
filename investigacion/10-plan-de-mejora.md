@@ -19,7 +19,8 @@ Todo lo demás (pronóstico, ríos, alertas, prensa) es contexto y queda detrás
 | Capa de alertas del SMN apagada al inicio | Menos ruido sobre la imagen |
 | Atribuciones en el borde inferior | No tapan el mapa |
 | Recorrido guiado en cada ingreso | Entendible siempre |
-| Foto de archivo HD eliminada | No se muestra imagen vieja como si fuera actual |
+| Foto HD de archivo (IGN, 2011 a 2021) como botón aparte, apagado al inicio | Da detalle de calle y casa (unos 0,4 m por píxel) para ubicar el barrio, con aviso permanente de que no es el agua de hoy |
+| Foco en el departamento San Fernando (Resistencia, Barranqueras, Vilelas y la ribera) | Menos mosaicos por vista y menos peticiones a servicios de terceros |
 | Leyenda con el significado de cada color y el límite de 10 m | El usuario sabe qué mira |
 
 ## Qué resolución es posible hoy, sin vueltas
@@ -38,6 +39,17 @@ Se pidió 50 cm o 1 m por píxel. Se investigó y **no existe una fuente gratuit
 | Carta Internacional y Copernicus EMS | submétrica | por activación | sí | No hubo activación en octubre. CONAE la puede solicitar |
 | OpenAerialMap | variable | quien suba | sí | Hay una imagen de 2023 en Chaco. Útil si alguien sube vuelos de dron |
 | Google, Mapbox, Bing, MapTiler | submétrica | sin fecha o de archivo | pago o términos restrictivos | Descartadas |
+
+### Revisión del 21 de octubre: CONAE, IGN e INTA
+
+| Fuente | Qué hay | Resolución | Veredicto |
+|---|---|---|---|
+| IGN, servicio WMS de ortomosaicos (`imagenes.ign.gob.ar`) | Resistencia 2011, Barranqueras 2014, Corrientes-Resistencia 2016 y un vuelo de dron en Fontana 2021 | 0,3 a 0,5 m | **Integrada como «Foto HD»**, solo de archivo. Sin CORS: se muestra, no se calcula sobre ella. Pendiente confirmar con el IGN si la publicación en un sitio requiere autorización; la cita obligatoria ya figura |
+| CONAE, catálogo y visor | SPOT 6/7 (1,5 m), COSMO-SkyMed y SAOCOM, con licencia o registro. El WMS abierto solo tiene fracción de inundación gruesa y los puntos de emergencias | 1,5 m en lo comercial | No hay producto público de las activaciones de inundación vigentes (n.º 353, 359, 360 y 361). Hay que pedirlo: u_inter@conae.gov.ar y atencion.usuario@conae.gov.ar |
+| INTA, geoservicios | 114 capas: inventario de humedales, cursos de agua, suelos | Cartografía de contexto | Sirve para marcar bajos y humedales que se inundan, no para decir qué está inundado hoy. El nodo regional Chaco-Formosa no tiene capas |
+| Sentinel-1 radar | Retrodispersión: el agua refleja poco y se ve oscura. Atraviesa nubes | 10 a 20 m | Viable y complementa a NDWI donde hay nubes. **No** llega a 1 m, y en zonas urbanas el rebote doble tapa el agua |
+
+NDWI sobre Sentinel-2 es el método ya usado y es válido. Sentinel-1 es un buen complemento, pero ninguno de los dos cumple el mínimo de 1 m por píxel.
 
 La conclusión se dice en el sitio y en los documentos: la mejor imagen gratuita y reciente es de 10 m. Se ve el barrio como mancha, no la casa. Para acercarse a 1 m hay dos caminos reales: una activación de la Carta Internacional pedida por CONAE y la Defensa Civil, y fotos o videos de dron y celular subidos por personas, con fecha y ubicación.
 

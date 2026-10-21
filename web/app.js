@@ -6,7 +6,8 @@ const CFG = {
   formEndpoint: "",            // servicio externo de formularios (hosting estático); si queda vacío se usa api/envios (servidor.py)
   email: "",                   // alternativa: abre el correo del usuario
   api: "api/envios",
-  bounds: [[-29.1, -62.9], [-23.9, -57.2]],
+  bounds: [[-27.64, -59.14], [-27.34, -58.76]],            // Departamento San Fernando: Resistencia, Barranqueras, Vilelas y el borde del río
+  limites: [[-27.80, -59.35], [-27.20, -58.55]],            // el mapa no sale de acá: evita pedir imágenes del interior
 };
 const M = window.Motion;
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -78,7 +79,7 @@ const TIPO = { evacuacion: ["Evacuación", "#D55E00", "#fff"], ruta: ["Ruta", "#
 const TORD = Object.keys(TIPO);
 const tipoPill = t => { const [n, c, f] = TIPO[t] || TIPO.general; return `<span class="tipo" style="background:${c};color:${f}">${n}</span>`; };
 
-const map = L.map("map", { preferCanvas: true, zoomControl: false, attributionControl: true });
+const map = L.map("map", { preferCanvas: true, zoomControl: false, attributionControl: true, minZoom: 10, maxBounds: CFG.limites, maxBoundsViscosity: .9 });
 map.attributionControl.setPrefix(false);
 L.control.zoom({ position: "bottomright", zoomInTitle: "Acercar", zoomOutTitle: "Alejar" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
@@ -118,12 +119,13 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches(".est[data-id]")) { e.preventDefault(); e.target.click(); } });
 
 /* ——— capas (dock) ——— */
-const on = { est: 1, gfm: 1, pre: 1, ale: 0, vid: 1, cam: 1 };   // las alertas SMN arrancan apagadas
+const on = { est: 1, gfm: 1, pre: 1, ale: 0, vid: 1, cam: 1, hd: 0 };   // las alertas SMN y la foto HD de archivo arrancan apagadas
 $$(".dk[data-l]").forEach(b => b.addEventListener("click", () => {
   const l = b.dataset.l; on[l] = !on[l]; b.setAttribute("aria-pressed", !!on[l]);
   if (G[l]) on[l] ? map.addLayer(G[l]) : map.removeLayer(G[l]);
   if (l === "gfm") $("#player").hidden = !on.gfm || !D.gfm.length;
   if (l === "cam") camEstado();
+  if (l === "hd") hdEstado();
 }));
 { // minimizar encabezado y panel, y modo solo mapa
   const alt = (id, cls) => $(id).addEventListener("click", e => { const v = BC.toggle(cls); e.currentTarget.setAttribute("aria-expanded", !v); e.currentTarget.title = v ? "Mostrar" : "Minimizar"; });
@@ -450,7 +452,16 @@ const ext = u => fetch(u).then(r => { if (!r.ok) throw Error(r.status); return r
 const mem = {}, una = (k, f) => mem[k] ??= f().catch(e => { delete mem[k]; throw e; });
 const medido = {};                                                          // id de foto + punto -> { e, pct }
 const C = { fotos: [], A: 0, B: 0, v: 50, capas: [null, null], agua: null, n: 0, toco: false, mide: false, key: "" };
-map.createPane("fotoA").style.zIndex = 240; map.createPane("fotoB").style.zIndex = 241; map.createPane("agua").style.zIndex = 246;
+map.createPane("fotoA").style.zIndex = 240; map.createPane("fotoB").style.zIndex = 241; map.createPane("hd").style.zIndex = 243; map.createPane("agua").style.zIndex = 246;
+/* ——— foto aérea HD de archivo (IGN, 2011 a 2021, unos 0,4 m por píxel): sirve para ubicar calles y casas bajo el azul de "Agua nueva". NO es el agua de hoy ——— */
+const ign = (ws, capas, b) => L.tileLayer.wms(`https://imagenes.ign.gob.ar/geoserver/${ws}/ows`, { layers: capas, format: "image/vnd.jpeg-png", transparent: true, version: "1.3.0", pane: "hd", tileSize: 512, zoomOffset: -1, minZoom: 12, maxZoom: 19, bounds: b, attribution: "Foto aérea HD de archivo 2011-2021. FUENTE: Instituto Geográfico Nacional de la República Argentina" });
+const HD = L.layerGroup([                                                                   // la más nueva va encima
+  ign("ortomosaicos_fotogrametria", "resistencia_2011,barranqueras_2014,corrientes-resistencia_2016", [[-27.67, -59.50], [-27.33, -58.72]]),
+  ign("ortomosaicos_vant", "fontana_2021", [[-27.452, -59.088], [-27.381, -58.997]])]);
+function hdEstado() {
+  on.hd ? HD.addTo(map) : map.removeLayer(HD);
+  if (on.hd) { if (map.getZoom() < 13) map.setZoom(14); toast("Foto aérea de archivo (2011 a 2021, IGN): sirve para ver calles y casas. No muestra el agua de hoy; el azul de “Agua nueva” sí es reciente.", 7000); }
+}
 const BOX = { type: "Polygon", coordinates: [[[-62.9, -29.1], [-57.2, -29.1], [-57.2, -23.9], [-62.9, -23.9], [-62.9, -29.1]]] };
 const V0 = () => innerWidth > 800 ? 22 : 30;                                                    // la línea arranca a la izquierda: casi todo el mapa muestra el "después" con el agua nueva
 const MOS = {};                                                                                  // fecha -> id de mosaico (todas las pasadas de ese día, toda la región)
@@ -508,7 +519,7 @@ function marca() {
   if (C.capas[1]) { $("#cmp-a").value = C.A; $("#cmp-b").value = C.B; }
 }
 /* ——— agua nueva: NDWI de Sentinel-2 (10 m) en la fecha "después" contra la fecha "antes", calculado en el navegador ——— */
-const lim = (() => { let n = 0; const q = []; const sig = () => { if (n < 6 && q.length) { n++; q.shift()(); } }; return f => new Promise((ok, no) => { q.push(() => f().then(ok, no).finally(() => { n--; sig(); })); sig(); }); })();
+const lim = (() => { let n = 0; const q = []; const sig = () => { if (n < 3 && q.length) { n++; q.shift()(); } }; return f => new Promise((ok, no) => { q.push(() => f().then(ok, no).finally(() => setTimeout(() => { n--; sig(); }, 150))); sig(); }); })();   // 3 a la vez y 150 ms entre pedidos: un servicio público no tiene por qué banearnos
 async function pix(id, c, k = 0) {                                                               // 256×256 RGBA del NDWI de ese día en ese tile
   try {
     const r = await lim(() => fetch(`${MT(id)}${c.z}/${c.x}/${c.y}@1x.png?collection=sentinel-2-l2a${NDWI}`)); if (!r.ok) throw Error(r.status);
@@ -543,7 +554,7 @@ async function mostrar() {
   if (n !== C.n) return;
   C.capas.forEach(l => l && map.removeLayer(l)); C.agua && map.removeLayer(C.agua);
   C.capas = [ida, idb].map((id, k) => L.tileLayer(`${MT(id)}{z}/{x}/{y}@1x.png?collection=sentinel-2-l2a&assets=visual&asset_bidx=visual%7C1,2,3`,
-    { pane: k ? "fotoB" : "fotoA", minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, errorTileUrl: VACIO, attribution: k ? "" : "Sentinel-2 © ESA/Copernicus, vía Microsoft Planetary Computer" }).addTo(map));
+    { pane: k ? "fotoB" : "fotoA", minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, updateWhenZooming: false, updateInterval: 300, errorTileUrl: VACIO, attribution: k ? "" : "Sentinel-2 © ESA/Copernicus, vía Microsoft Planetary Computer" }).addTo(map));
   C.agua = new Agua({ pane: "agua", a: ida, b: idb, minZoom: 9, minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, attribution: "Agua nueva: cálculo propio sobre Sentinel-2" });
   if (on.cam) C.agua.addTo(map);
   const ln = $("#cmp-line"); $("#cmp").hidden = ln.hidden = false; document.body.classList.add("fotos");
