@@ -3,7 +3,7 @@
 :root{
  --evac:#D55E00;--alerta:#F0E442;--normal:#009E73;--sin:#bbb;--agua:#0072B2;--brand:#0a63c9;--brand2:#00a3d9;
  --tx:#14202e;--tx2:#51606f;--bg:rgba(255,255,255,.82);--bg2:rgba(240,244,249,.9);--bd:rgba(20,32,46,.12);
- --sombra:0 8px 30px rgba(10,30,60,.18);--r:16px;--strip:34px;--sheet:42vh;
+ --sombra:0 8px 30px rgba(10,30,60,.18);--r:16px;--strip:34px;--sheet:42vh;--atr:0px;
  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 @media (prefers-color-scheme:dark){
@@ -178,14 +178,14 @@ form#form input:invalid:not(:placeholder-shown):not([type=date]){border-color:va
 .leaflet-popup-content{margin:12px 14px;font-size:13px;line-height:1.4;min-width:200px}
 .leaflet-popup-content h4{margin:0 0 4px;font-size:14px}
 .leaflet-control-zoom{border:0!important;box-shadow:var(--sombra)!important;border-radius:12px!important;overflow:hidden}
-.leaflet-control-attribution{font-size:10px;border-radius:8px 0 0 0;background:rgba(255,255,255,.75)!important}
+.leaflet-control-attribution{font-size:10px;border-radius:8px 0 0 0;background:rgba(255,255,255,.8)!important;margin:0!important;max-width:60vw}
 body.pick #map{cursor:crosshair}
 .mk{display:grid;place-items:center;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.45);color:#fff;font-weight:700;font-size:12px}
 .mk.sq{border-radius:4px}
 .mk.tri{border-radius:0;border:0;box-shadow:none;background:none!important;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
 .rp{position:absolute;inset:0;display:block}
 .sec{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin:14px 2px 6px}
-@media(min-width:801px){.leaflet-right .leaflet-control{margin-right:440px}.leaflet-bottom .leaflet-control{margin-bottom:96px}body.solo .leaflet-right .leaflet-control,body.panel-min .leaflet-right .leaflet-control{margin-right:12px}}
+@media(min-width:801px){.leaflet-right .leaflet-control{margin-right:440px}.leaflet-bottom .leaflet-control{margin-bottom:0}body.solo .leaflet-right .leaflet-control,body.panel-min .leaflet-right .leaflet-control{margin-right:12px}}
 .rp::before,.rp::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--evac);animation:ripple 2.2s ease-out infinite}
 .rp::after{animation-delay:1.1s}
 @keyframes ripple{from{transform:scale(1);opacity:.9}to{transform:scale(3);opacity:0}}
@@ -215,15 +215,15 @@ dialog form{margin-top:14px;text-align:right}
  #top{left:8px;right:8px;width:auto;top:calc(var(--strip) + 8px);padding:10px;gap:8px}
  .brand small{display:none}
  h1{font-size:15px}
- #panel{top:auto;left:8px;right:8px;width:auto;bottom:calc(66px + env(safe-area-inset-bottom));height:var(--sheet);border-radius:18px;transition:height .3s cubic-bezier(.3,.9,.3,1)}
+ #panel{top:auto;left:8px;right:8px;width:auto;bottom:calc(66px + var(--atr) + env(safe-area-inset-bottom));height:var(--sheet);border-radius:18px;transition:height .3s cubic-bezier(.3,.9,.3,1)}
  body:not(.sheet-open){--sheet:92px}
  body.sheet-open{--sheet:min(46vh,400px)}
  body.sheet-open .chips-row,body.sheet-open #player,body.sheet-open #brand-sub{display:none}
  #grip{display:block;width:100%;height:20px;border:0;background:transparent;padding:0}
  #grip span{display:block;width:44px;height:5px;border-radius:9px;margin:9px auto 0;background:var(--sin)}
  body:not(.sheet-open) .panel{display:none}
- #player{left:8px;right:8px;width:auto;bottom:calc(66px + var(--sheet) + 16px + env(safe-area-inset-bottom))}
- #dock{left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));justify-content:space-around;padding:5px;border-radius:18px}
+ #player{left:8px;right:8px;width:auto;bottom:calc(66px + var(--atr) + var(--sheet) + 16px + env(safe-area-inset-bottom))}
+ #dock{left:8px;right:8px;bottom:calc(8px + var(--atr) + env(safe-area-inset-bottom));justify-content:space-around;padding:5px;border-radius:18px}
  .dk{width:auto;flex:1;height:50px;gap:0;grid-template-rows:auto auto;align-content:center}
  .dk .lb{display:block;font-size:10.5px;font-weight:600;line-height:1}
  .dk svg{width:20px;height:20px;margin:0 auto 2px}
@@ -259,9 +259,9 @@ body.fotos #player{display:none}
 #cmp-line{position:fixed;z-index:900;top:var(--strip);bottom:0;left:30%;width:28px;margin-left:-14px;cursor:col-resize;touch-action:none}
 #cmp-line::before{content:"";position:absolute;left:13px;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
 #cmp-line i{position:absolute;left:0;top:50%;width:28px;height:28px;margin-top:-14px;border-radius:50%;background:#fff;color:#14202e;font-style:normal;font-size:15px;line-height:28px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.4)}
-#cmp-line .l,#cmp-line .r{position:absolute;top:calc(var(--strip) - 22px + 56px);padding:2px 8px;border-radius:99px;background:rgba(12,22,40,.78);color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap;pointer-events:none}
+#cmp-line .l,#cmp-line .r{position:absolute;top:calc(50% + 22px);padding:2px 8px;border-radius:99px;background:rgba(12,22,40,.78);color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap;pointer-events:none}
 #cmp-line .l{right:20px}#cmp-line .r{left:20px}
-@media (max-width:800px){#cmp{left:8px;right:8px;width:auto;bottom:calc(66px + var(--sheet) + 16px + env(safe-area-inset-bottom))}body.sheet-open #cmp{display:none}#cmp-line .l,#cmp-line .r{top:80px}}
+@media (max-width:800px){#cmp{left:8px;right:8px;width:auto;bottom:calc(66px + var(--atr) + var(--sheet) + 16px + env(safe-area-inset-bottom))}body.sheet-open #cmp{display:none}#cmp-line .l,#cmp-line .r{top:calc(50% + 22px)}}
 
 /* ——— minimizar paneles, modo solo mapa y foto HD ——— */
 #ph{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 0 14px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);font-weight:600}
@@ -275,26 +275,25 @@ body.panel-min #panel>:not(#ph){display:none}
 body.panel-min #ph{padding-bottom:6px}
 body.solo #top,body.solo #panel{display:none}
 #solo-x{position:fixed;z-index:1000;top:calc(var(--strip) + 12px);left:12px;padding:10px 14px;font-weight:600;font-size:13px;display:flex;gap:8px;align-items:center;border-radius:14px;cursor:pointer;color:var(--tx)}
-#solo-x[hidden],#hdinfo[hidden]{display:none}
+#solo-x[hidden]{display:none}
 #solo[aria-pressed=true]{background:var(--brand);color:#fff;border-color:var(--brand);opacity:1}
 #solo[aria-pressed=false]{opacity:1}
-:root{--hdh:86px}
-#hdinfo{position:fixed;z-index:1000;left:12px;bottom:76px;width:min(380px,calc(100vw - 24px));padding:8px 12px;display:grid;gap:2px;font-size:12px;line-height:1.3}
-#hdinfo b{font-size:13px}
-#hdinfo #hd-n,#hdinfo #hd-c{color:var(--tx2)}
-#hdinfo #hd-c{font-size:10px}
 .link{justify-self:start;border:0;background:none;padding:2px 0;color:#0a63c9;font-weight:600;font-size:12px;text-decoration:underline;cursor:pointer}
 @media (prefers-color-scheme:dark){.link{color:#6db3ff}}
-body.hd #cmp,body.hd #cmp-line{display:none}
-body.hd #player{bottom:calc(76px + var(--hdh) + 8px)}
 @media (max-width:800px){
  #ph{display:none}
- :root{--hdh:124px}
- #hdinfo{left:8px;right:8px;width:auto;bottom:calc(66px + var(--sheet) + 16px + env(safe-area-inset-bottom))}
- body.sheet-open #hdinfo{display:none}
- body.hd #player{bottom:calc(66px + var(--sheet) + 16px + var(--hdh) + 8px + env(safe-area-inset-bottom))}
- body.solo #player,body.solo #cmp,body.solo #hdinfo{bottom:calc(66px + env(safe-area-inset-bottom))}
- body.solo.hd #player{bottom:calc(66px + var(--hdh) + 8px + env(safe-area-inset-bottom))}
+ :root{--atr:16px}
+ .leaflet-control-attribution{max-width:100vw;font-size:9px}
+ body.solo #player,body.solo #cmp{bottom:calc(66px + var(--atr) + env(safe-area-inset-bottom))}
  #solo-x{left:8px;top:calc(var(--strip) + 8px)}
  .dk .lb{font-size:10px}
 }
+
+/* leyenda de agua nueva */
+#leyenda{flex:1 1 100%;margin:0;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;line-height:1.3;color:var(--tx)}
+#leyenda[hidden]{display:none}
+#leyenda span{display:inline-flex;align-items:center;gap:5px}
+#leyenda small{flex:1 1 100%;color:var(--tx2);font-size:10.5px}
+#leyenda .sw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.25);flex:none}
+#leyenda .sw.n{background:#0046ff}#leyenda .sw.p{background:#5aaaff}
+#leyenda .sw.g{background:repeating-linear-gradient(135deg,#8a8a8a 0 2px,#fff 2px 4px)}

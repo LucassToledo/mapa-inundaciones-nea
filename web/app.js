@@ -7,7 +7,6 @@ const CFG = {
   email: "",                   // alternativa: abre el correo del usuario
   api: "api/envios",
   bounds: [[-29.1, -62.9], [-23.9, -57.2]],
-  esriKey: "",                 // clave gratis de ArcGIS Location Platform: sin ella la foto HD funciona pero Esri puede limitarla si el tráfico es alto
 };
 const M = window.Motion;
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -80,10 +79,12 @@ const TORD = Object.keys(TIPO);
 const tipoPill = t => { const [n, c, f] = TIPO[t] || TIPO.general; return `<span class="tipo" style="background:${c};color:${f}">${n}</span>`; };
 
 const map = L.map("map", { preferCanvas: true, zoomControl: false, attributionControl: true });
+map.attributionControl.setPrefix(false);
 L.control.zoom({ position: "bottomright", zoomInTitle: "Acercar", zoomOutTitle: "Alejar" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
 map.createPane("gfm").style.zIndex = 250;
 const G = {}; ["est", "gfm", "pre", "ale", "vid", "zona"].forEach(k => G[k] = L.layerGroup().addTo(map));
+map.removeLayer(G.ale);
 const sheetPx = () => document.body.classList.contains("sheet-open") ? Math.min(innerHeight * .52, 460) : 92;
 const BC = document.body.classList;
 const pad = () => {
@@ -93,7 +94,7 @@ const pad = () => {
 };
 const fit = (b, mz = 14) => (reduce ? map.fitBounds(b, { ...pad(), maxZoom: mz }) : map.flyToBounds(b, { ...pad(), maxZoom: mz, duration: .9 }));
 const ir = (lat, lon, r = 3) => fit(L.latLng(lat, lon).toBounds(r * 1000));
-map.fitBounds(CFG.bounds, pad());
+map.fitBounds(CFG.bounds, pad());   // el arranque (inicio) acerca a Resistencia–Corrientes
 
 /* ——— pestañas y panel ——— */
 function tab(p, abrir = true) {
@@ -117,12 +118,12 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches(".est[data-id]")) { e.preventDefault(); e.target.click(); } });
 
 /* ——— capas (dock) ——— */
-const on = { est: 1, gfm: 1, pre: 1, ale: 1, vid: 1, hd: 0 };
+const on = { est: 1, gfm: 1, pre: 1, ale: 0, vid: 1, cam: 1 };   // las alertas SMN arrancan apagadas
 $$(".dk[data-l]").forEach(b => b.addEventListener("click", () => {
   const l = b.dataset.l; on[l] = !on[l]; b.setAttribute("aria-pressed", !!on[l]);
-  on[l] ? map.addLayer(G[l]) : map.removeLayer(G[l]);
+  if (G[l]) on[l] ? map.addLayer(G[l]) : map.removeLayer(G[l]);
   if (l === "gfm") $("#player").hidden = !on.gfm || !D.gfm.length;
-  if (l === "hd") hdEstado();
+  if (l === "cam") camEstado();
 }));
 { // minimizar encabezado y panel, y modo solo mapa
   const alt = (id, cls) => $(id).addEventListener("click", e => { const v = BC.toggle(cls); e.currentTarget.setAttribute("aria-expanded", !v); e.currentTarget.title = v ? "Mostrar" : "Minimizar"; });
@@ -448,8 +449,17 @@ const ART = d => d.toLocaleDateString("sv-SE", { timeZone: TZ });          // AA
 const ext = u => fetch(u).then(r => { if (!r.ok) throw Error(r.status); return r.json(); });   // sin cache:"no-cache": evita una consulta previa (CORS) a terceros
 const mem = {}, una = (k, f) => mem[k] ??= f().catch(e => { delete mem[k]; throw e; });
 const medido = {};                                                          // id de foto + punto -> { e, pct }
-const C = { fotos: [], A: 0, B: 0, v: 50, capas: [null, null], toco: false, mide: false, key: "" };
-map.createPane("fotoA").style.zIndex = 240; map.createPane("fotoB").style.zIndex = 241;
+const C = { fotos: [], A: 0, B: 0, v: 50, capas: [null, null], agua: null, n: 0, toco: false, mide: false, key: "" };
+map.createPane("fotoA").style.zIndex = 240; map.createPane("fotoB").style.zIndex = 241; map.createPane("agua").style.zIndex = 246;
+const BOX = { type: "Polygon", coordinates: [[[-62.9, -29.1], [-57.2, -29.1], [-57.2, -23.9], [-62.9, -23.9], [-62.9, -29.1]]] };
+const V0 = () => innerWidth > 800 ? 22 : 30;                                                    // la línea arranca a la izquierda: casi todo el mapa muestra el "después" con el agua nueva
+const MOS = {};                                                                                  // fecha -> id de mosaico (todas las pasadas de ese día, toda la región)
+const mosaico = dia => MOS[dia] ??= fetch(PC + "data/v1/mosaic/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+  collections: ["sentinel-2-l2a"], "filter-lang": "cql2-json", metadata: { name: "s2-" + dia },
+  filter: { op: "and", args: [{ op: "s_intersects", args: [{ property: "geometry" }, BOX] }, { op: "anyinteracts", args: [{ property: "datetime" }, { interval: [dia + "T00:00:00Z", dia + "T23:59:59Z"] }] }] } }) })
+  .then(r => { if (!r.ok) throw Error(r.status); return r.json(); }).then(j => j.searchid).catch(e => { delete MOS[dia]; throw e; });
+const MT = id => `${PC}data/v1/mosaic/${id}/tiles/WebMercatorQuad/`;
+const NDWI = "&assets=B03&assets=B08&assets=B02&expression=(B03-B08)/(B03%2BB08);B02;B08&asset_as_band=true&rescale=-1,1&rescale=0,4000&rescale=0,6000";   // R = NDWI, G = azul (nubes), B = infrarrojo
 
 /* clases SCL de Sentinel-2: 6 agua, 3 sombra, 8-10 nube, 0 sin dato. c = clases de un cuadrado n×n (n impar) centrado en el punto */
 function clasifica(c, n) {
@@ -478,7 +488,7 @@ async function fotos(lat, lon) {
   for (const f of j.features) { const dia = f.properties.datetime.slice(0, 10), nub = Math.round(f.properties["eo:cloud_cover"] ?? 100); if (!d.has(dia) || d.get(dia).nub > nub) d.set(dia, { f: dia, id: f.id, nub }); }
   return [...d.values()].sort((a, b) => b.f.localeCompare(a.f));
 }
-const claro = f => f.e ? f.e !== "nube" && f.e !== "nd" && f.e !== "nm" : f.nub < 40;
+const claro = f => f.e ? f.e !== "nube" && f.e !== "nd" && f.e !== "nm" : f.nub < 65;
 function defecto() {
   const ok = C.fotos.map((f, i) => [f, i]).filter(([f]) => claro(f)), B = ok.length ? ok[0][1] : 0;
   const lejos = ok.find(([f, i]) => i > B && P(C.fotos[B].f) - P(f.f) >= 14 * 864e5), sig = ok.find(([, i]) => i > B);
@@ -489,7 +499,7 @@ const etq = f => `${fdia(f.f)}${f.e ? " · " + ESTF[f.e][0] : ""} · nubes ${f.n
 function clip() {
   if (!C.capas[1]) return;
   const s = map.getSize(), x = s.x * C.v / 100, a = map.containerPointToLayerPoint([0, 0]), b = map.containerPointToLayerPoint([s.x, s.y]), m = map.containerPointToLayerPoint([x, 0]);
-  map.getPane("fotoB").style.clip = `rect(${a.y}px,${b.x}px,${b.y}px,${m.x}px)`;
+  for (const n of ["fotoB", "agua"]) map.getPane(n).style.clip = `rect(${a.y}px,${b.x}px,${b.y}px,${m.x}px)`;   // el agua nueva va solo del lado "después"
   const ln = $("#cmp-line"); ln.style.left = x + "px"; ln.setAttribute("aria-valuenow", Math.round(C.v));
 }
 map.on("move zoom viewreset resize", clip);
@@ -497,17 +507,54 @@ function marca() {
   $$("#c-fotos .ft").forEach(b => b.classList.toggle("sel", +b.dataset.i === C.A || +b.dataset.i === C.B));
   if (C.capas[1]) { $("#cmp-a").value = C.A; $("#cmp-b").value = C.B; }
 }
-function mostrar() {
-  C.capas.forEach(l => l && map.removeLayer(l));
-  C.capas = [C.A, C.B].map((i, k) => L.tileLayer(`${PC}data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x.png?collection=sentinel-2-l2a&item=${C.fotos[i].id}&assets=visual&asset_bidx=visual%7C1,2,3`,
-    { pane: k ? "fotoB" : "fotoA", minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, errorTileUrl: VACIO, attribution: k ? "" : "Sentinel-2 © ESA/Copernicus vía Microsoft Planetary Computer" }).addTo(map));
+/* ——— agua nueva: NDWI de Sentinel-2 (10 m) en la fecha "después" contra la fecha "antes", calculado en el navegador ——— */
+const lim = (() => { let n = 0; const q = []; const sig = () => { if (n < 6 && q.length) { n++; q.shift()(); } }; return f => new Promise((ok, no) => { q.push(() => f().then(ok, no).finally(() => { n--; sig(); })); sig(); }); })();
+async function pix(id, c, k = 0) {                                                               // 256×256 RGBA del NDWI de ese día en ese tile
+  try {
+    const r = await lim(() => fetch(`${MT(id)}${c.z}/${c.x}/${c.y}@1x.png?collection=sentinel-2-l2a${NDWI}`)); if (!r.ok) throw Error(r.status);
+    const b = await createImageBitmap(await r.blob()), cv = new OffscreenCanvas(256, 256), x = cv.getContext("2d", { willReadFrequently: true }); x.drawImage(b, 0, 0);
+    return x.getImageData(0, 0, 256, 256).data;
+  } catch (e) { if (k < 2) { await new Promise(f => setTimeout(f, 700 * (k + 1))); return pix(id, c, k + 1); } return null; }
+}
+// clases: 0 sin dato, 1 tierra, 2 agua, 3 nube o bruma. NDWI > 0,05 y no brillante en azul
+const clase = (d, i) => !d[i + 3] ? 0 : d[i + 1] * 4000 / 255 > 1800 && d[i] / 127.5 - 1 < .1 ? 3 : d[i] / 127.5 - 1 > .05 ? 2 : 1;
+function pinta(a, b, out) {                                                                      // a = antes, b = después (RGBA del NDWI); out = RGBA de salida
+  for (let y = 0, i = 0; y < 256; y++) for (let x = 0; x < 256; x++, i += 4) {
+    const cb = b ? clase(b, i) : 0, ca = a ? clase(a, i) : 0; let r, g, bl, al = 0;
+    if (cb === 2) {
+      const nuevo = ca === 1 && b[i] - a[i] > 13;                                                // 13 ≈ 0,1 de NDWI
+      [r, g, bl, al] = nuevo ? [0, 70, 255, 190] : ca === 2 ? [90, 170, 255, 90] : ca === 1 ? [90, 170, 255, 90] : [60, 130, 255, 130];
+    } else if (cb === 0 || cb === 3) { if (((x + y) >> 2) & 1) [r, g, bl, al] = [90, 90, 90, 90]; }   // rayado gris: sin dato
+    const o = i; out[o] = r; out[o + 1] = g; out[o + 2] = bl; out[o + 3] = al;
+  }
+}
+const Agua = L.GridLayer.extend({
+  createTile(c, listo) {
+    const cv = document.createElement("canvas"); cv.width = cv.height = 256; const o = this.options;
+    Promise.all([pix(o.a, c), pix(o.b, c)]).then(([a, b]) => {
+      if (!this._map) return; const im = new ImageData(256, 256); pinta(a, b, im.data); cv.getContext("2d").putImageData(im, 0, 0); listo(null, cv);
+    }).catch(() => listo(null, cv));
+    return cv;
+  }
+});
+async function mostrar() {
+  const n = ++C.n; let ida, idb;
+  try { [ida, idb] = await Promise.all([mosaico(C.fotos[C.A].f), mosaico(C.fotos[C.B].f)]); } catch { toast("No se pudieron preparar las fotos del satélite. Probá de nuevo en unos minutos."); return; }
+  if (n !== C.n) return;
+  C.capas.forEach(l => l && map.removeLayer(l)); C.agua && map.removeLayer(C.agua);
+  C.capas = [ida, idb].map((id, k) => L.tileLayer(`${MT(id)}{z}/{x}/{y}@1x.png?collection=sentinel-2-l2a&assets=visual&asset_bidx=visual%7C1,2,3`,
+    { pane: k ? "fotoB" : "fotoA", minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, errorTileUrl: VACIO, attribution: k ? "" : "Sentinel-2 © ESA/Copernicus, vía Microsoft Planetary Computer" }).addTo(map));
+  C.agua = new Agua({ pane: "agua", a: ida, b: idb, minZoom: 9, minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, attribution: "Agua nueva: cálculo propio sobre Sentinel-2" });
+  if (on.cam) C.agua.addTo(map);
   const ln = $("#cmp-line"); $("#cmp").hidden = ln.hidden = false; document.body.classList.add("fotos");
   $(".l", ln).textContent = "Antes · " + fdia(C.fotos[C.A].f); $(".r", ln).textContent = "Después · " + fdia(C.fotos[C.B].f);
+  $("#leyenda-f").textContent = `Agua nueva: aparece el ${fdia(C.fotos[C.B].f)} y no estaba el ${fdia(C.fotos[C.A].f)}`;
   marca(); clip();
 }
+function camEstado() { if (C.agua) on.cam ? C.agua.addTo(map) : map.removeLayer(C.agua); $("#leyenda").hidden = !on.cam; }
 function cerrar() {
-  C.capas.forEach(l => l && map.removeLayer(l)); C.capas = [null, null];
-  $("#cmp").hidden = $("#cmp-line").hidden = true; document.body.classList.remove("fotos"); map.getPane("fotoB").style.clip = "";
+  C.n++; C.capas.forEach(l => l && map.removeLayer(l)); C.capas = [null, null]; C.agua && map.removeLayer(C.agua); C.agua = null;
+  $("#cmp").hidden = $("#cmp-line").hidden = true; document.body.classList.remove("fotos"); for (const n of ["fotoB", "agua"]) map.getPane(n).style.clip = "";
 }
 function opciones() { const o = C.fotos.map((f, i) => `<option value="${i}">${etq(f)}</option>`).join(""); $("#cmp-a").innerHTML = $("#cmp-b").innerHTML = o; }
 function listaFotos() {
@@ -541,7 +588,7 @@ async function casa(lat, lon, t) {
   const k = f => C.key + f.id;
   C.fotos = fs.map(f => ({ ...f, ...medido[k(f)] }));
   [C.A, C.B] = defecto(); opciones(); listaFotos(); ahora();
-  if (C.fotos.length) { C.v = innerWidth > 800 ? (innerWidth - 420) / 2 / innerWidth * 100 : 50; mostrar(); }
+  if (C.fotos.length) { C.v = V0(); mostrar(); }
   const cola = C.fotos.slice(0, 24);
   await pool(cola.filter(f => !f.e), 4, async f => {
     try { Object.assign(f, medido[k(f)] = await sclEn(lat, lon, f.id)); } catch { f.e = "nd"; }
@@ -555,7 +602,7 @@ async function casa(lat, lon, t) {
 }
 $("#zona").addEventListener("click", e => {
   const b = e.target.closest("#c-fotos .ft"); if (!b) return; const i = +b.dataset.i; C.toco = true;
-  if (!C.capas[1]) { [C.A, C.B] = defecto(); C.v = innerWidth > 800 ? (innerWidth - 420) / 2 / innerWidth * 100 : 50; }
+  if (!C.capas[1]) { [C.A, C.B] = defecto(); C.v = V0(); }
   C.B = i; if (C.A <= i) C.A = Math.min(i + 1, C.fotos.length - 1);                             // "antes" siempre es una fecha más vieja que "después"
   mostrar();
 });
@@ -569,37 +616,6 @@ $("#cmp-x").onclick = cerrar;
   ln.addEventListener("pointerup", () => delete ln.dataset.d);
   ln.addEventListener("keydown", e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); pon(C.v + (e.key === "ArrowLeft" ? -4 : 4)); } });
 }
-
-/* ——— foto HD de archivo (Esri World Imagery): calles y casas, con su fecha; no es el agua de hoy ——— */
-map.createPane("hd").style.zIndex = 245;                                                       // sobre las fotos Sentinel-2, bajo el agua del radar (250)
-const HD = { u: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/", n: 0, p: null, avisado: false };
-// ponytail: maxNativeZoom 17 porque en zonas rurales Esri devuelve un cartel "sin datos" desde el 18; en ciudades hay hasta el 19 y se pierde esa mejora
-G.hd = L.layerGroup([L.tileLayer(HD.u + "tile/{z}/{y}/{x}" + (CFG.esriKey ? "?token=" + CFG.esriKey : ""), { pane: "hd", maxNativeZoom: 17, maxZoom: 19, errorTileUrl: VACIO, attribution: "Imagen HD © Esri, Maxar, Earthstar Geographics" })]);
-async function hdMeta() {
-  const c = map.getCenter(); if (HD.p && hav(HD.p.lat, HD.p.lng, c.lat, c.lng) < 1.5 && $("#hd-t").textContent) return;
-  const n = ++HD.n; HD.p = c;
-  let a = null;
-  try {
-    const j = await ext(`${HD.u}4/query?f=json&geometry=${c.lng.toFixed(5)},${c.lat.toFixed(5)}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=SRC_DATE2,SRC_RES&returnGeometry=false${CFG.esriKey ? "&token=" + CFG.esriKey : ""}`);
-    a = j.features.map(f => f.attributes).filter(x => x.SRC_DATE2 && x.SRC_RES <= 1);            // solo fuentes HD con fecha (hay una de 15 m sin fecha)
-  } catch { /* se avisa abajo */ }
-  if (n !== HD.n || !on.hd) return;
-  if (!a || !a.length) { $("#hd-t").textContent = "Foto HD de archivo"; $("#hd-n").textContent = "No pudimos leer su fecha. No es una foto de hoy y no muestra el agua actual."; return; }
-  // Esri no dice cuál fuente se dibuja en cada zoom: se informa el rango de fechas de las fuentes HD del punto
-  const f = ms => new Date(ms).toLocaleDateString("es-AR", { timeZone: "UTC", month: "short", year: "numeric" }), t = a.map(x => x.SRC_DATE2), d0 = Math.min(...t), d1 = Math.max(...t);
-  const fe = f(d0) === f(d1) ? f(d0) : `entre ${f(d0)} y ${f(d1)}`, mejor = Math.min(...a.map(x => x.SRC_RES));
-  $("#hd-t").textContent = `Foto HD de archivo · ${fe} · hasta ${nf(mejor, 2)} m por píxel`;
-  $("#hd-n").textContent = `Tomada hace ${Math.max(1, Math.round((Date.now() - d1) / 2.63e9))} meses o más. Sirve para ver calles, casas y relieve, no el agua de hoy.`;
-}
-function hdEstado() {
-  BC.toggle("hd", !!on.hd); $("#hdinfo").hidden = !on.hd;
-  if (on.hd) { $("#hd-t").textContent = "Foto HD de archivo"; $("#hd-n").textContent = "Buscando la fecha de la foto…"; HD.p = null; hdMeta(); if (map.getZoom() < 14) toast("Acercá el mapa para ver la foto HD en detalle."); }
-}
-map.on("moveend", () => { if (on.hd) { clearTimeout(HD.t); HD.t = setTimeout(hdMeta, 600); } });
-map.on("zoomend", () => {
-  if (map.getZoom() >= 15 && !on.hd && !HD.avisado && C.capas[1]) { HD.avisado = true; toast("Las fotos Sentinel-2 son de 10 m por píxel y se ven borrosas de cerca. Para calles y casas, prendé «Foto HD» abajo.", 7000); }
-});
-$("#hd-x").addEventListener("click", () => $('.dk[data-l="hd"]').click());
 
 /* percentil de v dentro de un arreglo (% de valores menores) */
 const pct = (a, v) => a.length ? a.filter(x => x < v).length / a.length * 100 : NaN;
@@ -675,7 +691,7 @@ function tour() {
     ["#buscar", "Poné tu dirección", "Escribí tu dirección con calle y ciudad y apretá Enter. También podés tocar ◎ para usar tu ubicación o 📍 para marcar un punto en el mapa."],
     ["#radio", "Elegí el radio", "Define cuánto alrededor querés mirar: 5, 10 o 25 km."],
     [m ? "#tabs" : "#panel", "Secciones", "Resumen de tu zona, Prensa, Ríos, Alertas, Videos y Enviar. Cada una tiene un “¿Cómo se lee esto?” arriba."],
-    ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. «Foto HD» muestra una foto de archivo con calles y casas (con su fecha). «Mapa» esconde los paneles. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
+    ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. «Agua nueva» marca en azul lo que se inundó entre las dos fechas. «Mapa» esconde los paneles. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
     ["#player", "Línea de tiempo del satélite", "Mové la fecha o apretá ▶ para ver las pasadas. Entre una pasada y otra no hay datos y no se inventa nada."],
     ["#strip", "Aviso permanente", "Es información automática y no oficial. Ante una emergencia, llamá al 911."],
   ].filter(p => { const el = $(p[0]); return el && el.getClientRects().length; });
@@ -738,6 +754,13 @@ if (location.search === "?test") autotest();
   }
   const h = /z=(-?[\d.]+),(-?[\d.]+),(\d+)(&ap=1)?(?:&n=(.*))?/.exec(location.hash);
   if (h && [5, 10, 25].includes(+h[3])) { let n = "Punto en el mapa"; try { n = decodeURIComponent(h[5] || n).slice(0, 60); } catch { } q.value = ["Punto en el mapa", "Mi ubicación", "Mi dirección"].includes(n) ? "" : n; setZona(+h[1], +h[2], n, +h[3], !!h[4]); }
-  else if (!store.get("tour-ok")) { $(".ayuda").open = true; setTimeout(tour, 1200); }
+  else inicio();
+  $(".ayuda").open = true; setTimeout(tour, 1200);                                               // el recorrido sale siempre; "Saltar" lo cierra
 })();
+async function inicio() {                                                                        // arranca en antes y después, sobre Resistencia–Corrientes
+  ir(-27.462, -58.87, 14);
+  let fs; try { fs = await una("f-inicio", () => fotos(-27.462, -58.87)); } catch { return toast("No se pudo consultar el satélite. Probá recargar en unos minutos."); }
+  if (C.key || !fs.length) return;                                                               // el usuario ya eligió una zona
+  C.fotos = fs; [C.A, C.B] = defecto(); opciones(); C.v = V0(); mostrar();
+}
 })();

@@ -1,5 +1,7 @@
 # 09. Foto de alta definición, paneles y utilidad real
 
+> **Actualización del 21 de octubre de 2026:** la capa Foto HD (Esri) se quitó del sitio. Era imagen de archivo, no se podía comparar con el agua de hoy y se veía mal. El rumbo corregido está en [10-plan-de-mejora.md](10-plan-de-mejora.md). Este documento queda como registro de lo que se probó.
+
 Pedido: las fotos satelitales eran demasiado borrosas para decidir una evacuación, los paneles laterales tapaban el mapa y había que pensar en utilidad para el público y el gobierno.
 
 ## Por qué se veía borroso
@@ -46,4 +48,4 @@ Gobierno y Defensa Civil:
 
 ## Pendientes sin verificar
 
-Términos de Esri para un organismo público; comportamiento de Esri a escala (cupo y bloqueos); falsos positivos de la clasificación SCL; validación contra una inundación real; destino del formulario; alojamiento definitivo en el ICCTI; revisión legal del aviso.
+Términos de Esri para un organismo público; comportamiento de Esri a escala (cupo y bloqueos); falsos positivos de la clasificación SCL; validación contra una inundación real; destino del formulario; revisión legal del aviso.

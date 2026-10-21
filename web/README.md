@@ -14,11 +14,12 @@ Creado por [@eltiolucas.ia](https://www.instagram.com/eltiolucas.ia/) (el crédi
   - **Pronóstico por mes** (Open-Meteo: caudal GloFAS y lluvia estacional): nivel del río de los próximos meses comparado con el mismo mes desde 1984, y el escenario "si llueve más". Es regional: muestra a cuántos km está el río modelado y no considera la altura del terreno.
   - Agua detectada por radar (Copernicus GFM), ríos cercanos, alertas del SMN y notas de prensa, como antes.
   - El enlace (`#z=lat,lon,radio&n=nombre`) abre la misma zona. Las direcciones y el GPS se redondean a 2 decimales (~1 km), llevan `&ap=1` y se llaman "Mi dirección" o "Mi ubicación" en el enlace.
-- **Foto HD** (botón del dock): mosaicos de Esri World Imagery (sin clave, con atribución), 30 a 50 cm por píxel en la mayoría de la zona. Es imagen de **archivo** de meses o años atrás: sirve para ver calles, casas y terreno, no el agua de hoy. La ficha `#hdinfo` muestra el rango de fechas y la mejor resolución de la vista (consulta a la capa 4 del servicio). El agua de radar se dibuja encima de la HD. Zoom nativo hasta 17 (en zonas rurales Esri devuelve un cartel de "sin datos" desde el 18).
-- **Menos paneles**: cada panel tiene una flecha (`#min-top`, `#min-panel`) que lo achica a su barra; el botón **Mapa** (`#solo`) esconde todo menos el aviso legal y el dock, y **Mostrar paneles** lo devuelve.
+- **Agua nueva** (capa principal, botón del dock): el navegador pide a Planetary Computer los mosaicos Sentinel-2 de las dos fechas elegidas (banda verde, infrarrojo cercano, azul), calcula NDWI por píxel y pinta en azul fuerte lo que era tierra en "Antes" y es agua en "Después"; en celeste el agua que ya estaba; rayado donde alguna fecha no tiene dato (nubes). Solo se dibuja del lado "Después" de la barra. Resolución 10 m, sin validar contra una inundación real. El mapa arranca siempre en modo comparación con la capa de alertas del SMN apagada.
+- **Sin foto de archivo de alta definición**: se probó una capa de Esri (30 a 50 cm) y se quitó, porque es de meses o años atrás y no se puede comparar con el agua de hoy. Ver `investigacion/10-plan-de-mejora.md`.
+- **Menos paneles**: cada panel tiene una flecha (`#min-top`, `#min-panel`) que lo achica a su barra; el botón **Mapa** (`#solo`) esconde todo menos el aviso legal y el dock, y **Mostrar paneles** lo devuelve. Las atribuciones van en el borde inferior.
 - **Cálculo del agua**: se piden los tiles crudos de Copernicus GFM y se cuentan los píxeles en el navegador (alfa 255 = dato válido, canal R = 1 es agua). Tarda unos 15–25 s con 10–25 km y reintenta hasta 8 pasadas hacia atrás, quedándose con las 2 que cubren ≥ 10 % de la zona.
 - **Reproductor**: recorre las pasadas con fundido de opacidad. No interpola formas entre pasadas (inventaría agua).
-- **Tutoriales**: recorrido guiado al primer ingreso (se recuerda en `localStorage`) y ayuda “¿Cómo se lee esto?” en cada pestaña.
+- **Tutoriales**: recorrido guiado en cada ingreso ("Saltar" o Escape lo cierra) y ayuda “¿Cómo se lee esto?” en cada pestaña.
 - Búsqueda: primero `data/lugares.json` (123 localidades y departamentos), luego Georef (datos.gob.ar) y, al apretar Enter o tocar "Buscar como dirección", Nominatim (OSM).
 - **Terceros desde el navegador del usuario**: las coordenadas (y la IP) llegan a Microsoft Planetary Computer y a Open-Meteo al abrir una zona, y el texto buscado a datos.gob.ar y OSM. Está dicho en el aviso legal. Open-Meteo es gratis solo para uso no comercial: consultar antes de un uso institucional con mucho tráfico.
 - **CONAE**: su página de inundaciones es estática (2015) y no ofrece servicio de mapas, por eso no se integra. Detalle en `investigacion/08-fotos-satelitales-y-pronostico.md`.
@@ -30,14 +31,12 @@ python -X utf8 servidor.py          # sirve web/ en http://localhost:8765 y habi
 python -X utf8 servidor.py --test   # chequeo propio, imprime "ok"
 ```
 
-Para un uso institucional con la Foto HD, crear una clave gratuita en ArcGIS Location Platform y ponerla en `CFG.esriKey` (`app.js`): los mosaicos se piden con `?token=` y quedan dentro de los términos de Esri.
-
 `python -m http.server 8765` también sirve para ver el mapa, pero el formulario devolverá error (no hay API). Agregar `?test` a la URL corre un chequeo de la geometría del cálculo de agua.
 
-## Subirlo al subdominio del ICCTI
+## Publicarlo
 
 - **Solo hosting de archivos**: copiar `index.html`, `estilo.css`, `app.js` y `data/`. Todo funciona menos la cola de envíos: en `app.js`, constante `CFG`, completar `formEndpoint` (Formspree, Getform, Apps Script…, recibe POST JSON) o `email` (abre el correo del usuario con el reporte). Sin ninguno, el formulario avisa que “el envío todavía no está habilitado”. **Hay que completar uno antes de publicar.**
-- **Si el ICCTI permite Python**: correr `servidor.py` detrás de su proxy (HTTPS lo pone el proxy) con `ADMIN_TOKEN=<clave larga>`. Los envíos quedan en `envios.db` (SQLite) como *pendientes*; se revisan en `/admin?token=<clave>`. Aprobar un envío con enlace de YouTube lo agrega a `data/videos.json`; el resto solo se marca aprobado (no hay vista pública de reportes todavía). Límite de 5 envíos por IP por hora (en memoria), campo trampa anti-bots, `envios.db` y `*.py` no se sirven.
+- **Si el hosting permite Python**: correr `servidor.py` detrás de un proxy (HTTPS lo pone el proxy) con `ADMIN_TOKEN=<clave larga>`. Los envíos quedan en `envios.db` (SQLite) como *pendientes*; se revisan en `/admin?token=<clave>`. Aprobar un envío con enlace de YouTube lo agrega a `data/videos.json`; el resto solo se marca aprobado (no hay vista pública de reportes todavía). Límite de 5 envíos por IP por hora (en memoria), campo trampa anti-bots, `envios.db` y `*.py` no se sirven.
 - Siempre HTTPS (el GPS del navegador lo exige).
 
 ## Actualización automática de datos
@@ -80,9 +79,9 @@ Si se aprueba desde `/admin`, la fecha guardada es la del hecho que informó el 
 - Certificados: INA, SMN y chacodiapordia fallan la verificación TLS en Python (certificado vencido). `get()` reintenta sin verificar; son datos públicos de solo lectura, conviene avisarles.
 - Fotos: Sentinel-2 pasa cada 2 a 5 días y en octubre de 2026 muchas escenas del NEA tienen más de 70 % de nubes. "Sin agua" se dice solo con una foto clara. La clasificación SCL puede confundir sombras o techos oscuros con agua. Planetary Computer es un servicio de terceros sin garantía.
 - Pronóstico: grilla de ~5 km que se ajusta al río más cercano, que puede ser otro cauce (un punto de Resistencia cae a un arroyo y no al Paraná). No incluye relieve ni defensas. No prueba que el agua llegue o no a una casa.
-- Foto HD: imagen de archivo comercial (Maxar y otros vía Esri), de fechas distintas según el punto. Esri no dice cuál de varias tomas se dibuja, así que la ficha da el rango de la zona, no la fecha de cada píxel. Los términos de Esri para un organismo público no se consultaron.
+- Agua nueva: umbrales NDWI (0,05) y de cambio (≈0,1) sin calibrar ni validar. Sombras, techos oscuros y campos arados pueden dar falsos positivos. Cada mosaico es una petición a Planetary Computer: con mucho movimiento del mapa el servicio rechaza peticiones; hay un limitador de 6 simultáneas y 2 reintentos.
 - Terceros: con muchas zonas abiertas seguidas, Planetary Computer, EODC y OSM rechazan peticiones (`ERR_HTTP2_SERVER_REFUSED_STREAM` en la consola). El mapa sigue andando sin esas capas.
 - Mapa base: tiles públicos de OpenStreetMap, no aptos para mucho tráfico. Usar un proveedor con clave (MapTiler, Stadia) o tiles propios.
 - Leaflet y Motion vienen de CDN; para funcionar sin ellas copiar los archivos junto a `index.html`.
-- No hay aún: comparación de la Foto HD contra la foto reciente, rutas y puntos de reunión, DEM/relieve, vista operativa para Defensa Civil, pronóstico del INA, vista pública de reportes aprobados, revisión legal del aviso. Peso en 3G y pruebas en celulares reales sin medir.
+- No hay aún: cambio por radar Sentinel-1, enlaces públicos a fotos y videos ubicados en el mapa, rutas y puntos de reunión, DEM/relieve, vista operativa para Defensa Civil, pronóstico del INA, vista pública de reportes aprobados, revisión legal del aviso. Peso en 3G y pruebas en celulares reales sin medir.
 - Licencias: SMN CC BY 4.0 (atribuido). El INA no declara licencia: consultar antes de un uso institucional amplio.

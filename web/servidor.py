@@ -9,7 +9,7 @@ GET  /admin?token=...             revisar: aprobar / rechazar (aprobar un enlace
 POST /admin/accion                {id, accion: aprobar|rechazar, token}
 
 ponytail: un solo proceso y un SQLite; límite por IP en memoria (se pierde al reiniciar).
-Si el ICCTI tiene muchos visitantes escribiendo a la vez, pasar a gunicorn + Postgres.
+Si hay muchos visitantes escribiendo a la vez, pasar a gunicorn + Postgres.
 """
 import hashlib, html, json, os, re, sqlite3, sys, threading, time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
