@@ -1,0 +1,6 @@
+envios.db
+__pycache__/
+video/f/
+video/*.mp4
+.claude/
+*.log

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mapa de inundaciones – Chaco y NEA</title>
+<meta name="description" content="Mapa OSINT de las inundaciones en Chaco y el NEA: elegí tu zona y mirá agua detectada por satélite, ríos, alertas, prensa y videos. Información automática, no oficial.">
+<meta name="theme-color" content="#0a63c9">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<div id="map" role="application" aria-label="Mapa interactivo de inundaciones"></div>
+
+<!-- Aviso siempre visible: no se puede cerrar -->
+<div id="strip" role="note">
+ <span><strong>Información automática y NO oficial.</strong> Ante una emergencia llamá al <strong>911</strong> y seguí a Defensa Civil.</span>
+ <button type="button" id="btn-aviso">Ver detalle</button>
+</div>
+
+<header id="top" class="glass">
+ <div class="brand">
+  <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3C12 10 7 14.5 7 20a9 9 0 0018 0c0-5.500-5-10-9-17z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00a3d9"/><stop offset="1" stop-color="#0a63c9"/></linearGradient></defs></svg>
+  <div><h1 class="grad">Inundaciones Chaco y NEA</h1><small id="brand-sub">Mapa OSINT abierto · ICCTI<br>Creado por <a href="https://www.instagram.com/eltiolucas.ia/" target="_blank" rel="noopener">@eltiolucas.ia</a></small></div>
+  <button type="button" id="btn-help" class="icon" aria-label="Ver el tutorial" title="Tutorial">?</button>
+ </div>
+ <form id="buscar" role="search" autocomplete="off">
+  <div class="combo">
+   <input id="q" type="search" placeholder="Buscá tu localidad o barrio" aria-label="Buscar una zona" role="combobox" aria-expanded="false" aria-controls="sug" aria-autocomplete="list" maxlength="60">
+   <ul id="sug" role="listbox" hidden></ul>
+  </div>
+  <button type="button" id="gps" class="icon" aria-label="Usar mi ubicación" title="Usar mi ubicación"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.500"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
+  <button type="button" id="pick" class="icon" aria-label="Elegir un punto en el mapa" aria-pressed="false" title="Elegir un punto en el mapa"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.200 7-11.500A7 7 0 005 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.500"/></svg></button>
+ </form>
+ <div class="chips-row">
+  <div id="presets" class="chips" aria-label="Zonas rápidas"></div>
+  <div id="radio" class="chips seg" role="group" aria-label="Radio de la zona">
+   <button type="button" class="chip" data-r="5" aria-pressed="false">5 km</button>
+   <button type="button" class="chip" data-r="10" aria-pressed="true">10 km</button>
+   <button type="button" class="chip" data-r="25" aria-pressed="false">25 km</button>
+  </div>
+ </div>
+</header>
+
+<aside id="panel" class="glass" aria-label="Paneles de información">
+ <button type="button" id="grip" aria-label="Mostrar u ocultar el panel"><span></span></button>
+ <nav id="tabs" role="tablist">
+  <button role="tab" data-p="resumen" aria-selected="true">Resumen</button>
+  <button role="tab" data-p="prensa" aria-selected="false">Prensa</button>
+  <button role="tab" data-p="rios" aria-selected="false">Ríos</button>
+  <button role="tab" data-p="alertas" aria-selected="false">Alertas</button>
+  <button role="tab" data-p="videos" aria-selected="false">Videos</button>
+  <button role="tab" data-p="enviar" aria-selected="false">Enviar</button>
+ </nav>
+
+ <section class="panel" id="p-resumen" role="tabpanel">
+  <details class="ayuda"><summary>¿Cómo se usa?</summary>
+   <p>1. Buscá tu localidad, tocá <b>◎</b> para usar tu ubicación o <b>📍</b> para marcar un punto en el mapa.<br>
+   2. Elegí un radio (5, 10 o 25 km). El mapa se centra y abajo aparece qué se detectó cerca.<br>
+   3. Compartí el enlace: abre el mapa en la misma zona. Tu ubicación no sale de tu dispositivo. Al buscar un lugar, el texto se consulta en datos.gob.ar y OpenStreetMap.</p>
+   <p><b>Sin dato no significa sin agua.</b> El satélite no ve todo y la prensa no cubre todo.</p>
+  </details>
+  <div id="stats" class="stats"></div>
+  <div id="zona"></div>
+ </section>
+
+ <section class="panel" id="p-prensa" role="tabpanel" hidden>
+  <details class="ayuda"><summary>¿Cómo se lee esto?</summary>
+   <p>Titulares de medios, ubicados por el nombre del lugar que mencionan. <b>Nadie los verificó</b>: la ubicación puede ser aproximada o equivocada. Tocá la nota para leerla en el medio original. Solo las notas con una localidad concreta aparecen en el mapa; las de nivel provincia quedan en la lista.</p>
+  </details>
+  <div id="prensa"></div>
+ </section>
+
+ <section class="panel" id="p-rios" role="tabpanel" hidden>
+  <details class="ayuda"><summary>¿Cómo se lee esto?</summary>
+   <p>Cada punto es una estación de medición (INA y otras redes) con la altura del río. El color compara con las cotas oficiales: <span class="dot" style="background:var(--normal)"></span> bajo la cota de alerta, <span class="dot" style="background:var(--alerta)"></span> sobre alerta, <span class="dot" style="background:var(--evac)"></span> sobre evacuación (late en el mapa). <span class="dot" style="background:var(--sin)"></span> gris = la estación no tiene cota cargada; no implica que esté bien. La línea es la altura de los últimos días.</p>
+  </details>
+  <div id="rios"></div>
+ </section>
+
+ <section class="panel" id="p-alertas" role="tabpanel" hidden>
+  <details class="ayuda"><summary>¿Cómo se lee esto?</summary>
+   <p>Alertas vigentes del Servicio Meteorológico Nacional (SMN) para la zona. El color indica la gravedad que fija el SMN (amarillo-celeste menor, naranja-rojo mayor). Los polígonos punteados del mapa muestran el área alcanzada.</p>
+  </details>
+  <div id="alertas"></div>
+ </section>
+
+ <section class="panel" id="p-videos" role="tabpanel" hidden>
+  <details class="ayuda"><summary>¿Cómo se lee esto?</summary>
+   <p>Videos que circulan, con su <b>fecha de publicación</b> (no necesariamente la del hecho). Muchos videos se reciclan de inundaciones anteriores: antes de compartir uno, buscá si ya existía. Si encontrás uno, mandalo desde “Enviar”.</p>
+  </details>
+  <div id="videos"></div>
+ </section>
+
+ <section class="panel" id="p-enviar" role="tabpanel" hidden>
+  <details class="ayuda"><summary>¿Cómo funciona?</summary>
+   <p>Lo que mandes <b>no se publica solo</b>: lo revisa una persona. Indicá lugar y fecha exactos. No pongas domicilios, teléfonos ni datos de otras personas. El contacto es opcional y nunca se publica.</p>
+  </details>
+  <form id="form" novalidate>
+   <label>Qué viste<select name="tipo"><option>Agua / anegamiento</option><option>Evacuación</option><option>Ruta o camino cortado</option><option>Video o foto</option><option>Otro</option></select></label>
+   <label>Lugar (localidad, barrio, ruta y km) *<input name="lugar" required maxlength="150"></label>
+   <label>Fecha del hecho *<input name="fecha" type="date" required></label>
+   <label>Descripción *<textarea name="descripcion" rows="4" required maxlength="800"></textarea></label>
+   <label>Enlace al video o foto (opcional)<input name="enlace" type="url" maxlength="300" placeholder="https://"></label>
+   <label>Contacto (opcional, no se publica)<input name="contacto" maxlength="120"></label>
+   <input class="hp" name="web" tabindex="-1" autocomplete="off" aria-hidden="true">
+   <button type="submit" class="shimmer">Enviar para revisión</button>
+   <p id="form-msg" role="status"></p>
+  </form>
+ </section>
+</aside>
+
+<div id="player" class="glass" hidden>
+ <button type="button" id="play" class="icon" aria-label="Reproducir la línea de tiempo"><svg viewBox="0 0 24 24"><path id="play-i" d="M8 5l11 7-11 7z"/></svg></button>
+ <div class="pl-mid">
+  <input type="range" id="gfm-r" min="0" max="0" value="0" aria-label="Fecha de la escena satelital">
+  <div id="gfm-l" aria-live="polite"></div>
+ </div>
+</div>
+
+<div id="dock" class="glass" role="toolbar" aria-label="Capas del mapa">
+ <button type="button" class="dk" data-l="est" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 8c3 0 3 2 6 2s3-2 6-2 3 2 6 2M3 14c3 0 3 2 6 2s3-2 6-2 3 2 6 2"/></svg><span class="lb">Ríos</span><span class="tip" id="t-est">Ríos (INA)</span></button>
+ <button type="button" class="dk" data-l="gfm" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/></svg><span class="lb">Satélite</span><span class="tip" id="t-gfm">Agua detectada</span></button>
+ <button type="button" class="dk" data-l="pre" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M5 4h11v16H7a2 2 0 01-2-2V4zM16 8h3v10a2 2 0 01-2 2M8 8h5M8 12h5M8 16h5"/></svg><span class="lb">Prensa</span><span class="tip" id="t-pre">Notas de prensa</span></button>
+ <button type="button" class="dk" data-l="ale" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3zM12 10v5M12 18v.5"/></svg><span class="lb">Alertas</span><span class="tip" id="t-ale">Alertas SMN</span></button>
+ <button type="button" class="dk" data-l="vid" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span class="lb">Videos</span><span class="tip">Videos con ubicación</span></button>
+</div>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<dialog id="d-aviso">
+ <h2>Antes de usar este mapa</h2>
+ <ul>
+  <li><strong>Es información automática y NO oficial.</strong> Ante una emergencia llamá al 911 y seguí las indicaciones de Defensa Civil de tu municipio.</li>
+  <li><strong>Sin datos ≠ sin agua.</strong> Que una zona no tenga marcas no significa que esté a salvo.</li>
+  <li>Prensa: titulares recolectados y ubicados por palabras clave, sin revisión humana; la ubicación puede ser aproximada o errónea. Se descartan los de más de 60 días.</li>
+  <li>Satélite (Sentinel-1 radar, Copernicus GFM): pasa cada pocos días, no detecta bien agua bajo vegetación ni en zonas urbanas. Mirá siempre la fecha de la escena y el porcentaje de cobertura. Los km² son estimaciones.</li>
+  <li>Ríos: alturas del INA y otras redes contra sus cotas. Las estaciones sin cota se muestran en gris.</li>
+  <li>Videos y reportes de usuarios: se revisan antes de publicarse, pero no podemos garantizar fecha ni lugar reales.</li>
+  <li>Fuentes: INA, Copernicus GFM (EODC), SMN (CC BY 4.0), medios citados (se enlaza la nota original), datos.gob.ar, © OpenStreetMap.</li>
+  <li>Creado por <a href="https://www.instagram.com/eltiolucas.ia/" target="_blank" rel="noopener">@eltiolucas.ia</a>.</li>
+ </ul>
+ <form method="dialog"><button class="shimmer">Entendido</button></form>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/motion@11.18.2/dist/motion.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>

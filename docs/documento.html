@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Mapa de inundaciones Chaco y NEA: documento técnico para el ICCTI</title>
+<style>
+@page{size:A4;margin:22mm 20mm 20mm}
+*{box-sizing:border-box}
+body{font:11pt/1.5 "Segoe UI",Inter,Arial,sans-serif;color:#1b2430;margin:0}
+h1{font-size:25pt;line-height:1.15;margin:0 0 6mm;color:#0a3f7d}
+h2{font-size:15pt;color:#0a3f7d;border-bottom:1.5px solid #0a63c9;padding-bottom:2mm;margin:9mm 0 4mm;break-after:avoid}
+h3{font-size:12pt;margin:6mm 0 2mm;color:#13355f;break-after:avoid}
+p{margin:0 0 3mm;text-align:justify}
+ul,ol{margin:0 0 3mm;padding-left:6mm}li{margin-bottom:1.5mm}
+a{color:#0a63c9}
+.portada{height:245mm;display:flex;flex-direction:column;justify-content:center;break-after:page}
+.portada .sub{font-size:14pt;color:#3b4a5c;margin-bottom:14mm}
+.portada .meta{font-size:11pt;line-height:1.8;border-left:4px solid #0a63c9;padding-left:5mm}
+figure{margin:4mm 0 5mm;break-inside:avoid}
+figure img{width:100%;border:1px solid #c9d3df;border-radius:3px;display:block}
+figure.cel img{width:62mm;margin:0 auto}
+figcaption{font-size:9.5pt;color:#4a5a6d;margin-top:1.5mm}
+table{border-collapse:collapse;width:100%;font-size:9.5pt;margin:2mm 0 4mm;break-inside:avoid}
+th,td{border:1px solid #c9d3df;padding:2mm 2.5mm;text-align:left;vertical-align:top}
+th{background:#eaf1fa;color:#13355f}
+.nota{background:#f3f7fc;border-left:4px solid #0a63c9;padding:3mm 4mm;margin:3mm 0 4mm;break-inside:avoid}
+.pie{font-size:9pt;color:#4a5a6d;margin-top:10mm}
+</style></head><body>
+
+<section class="portada">
+  <h1>Mapa de inundaciones<br>Chaco y NEA</h1>
+  <div class="sub">Documento técnico y funcional para la evaluación de su alojamiento en un subdominio del ICCTI</div>
+  <div class="meta">
+    <b>Autor:</b> Lucas Toledo (<a href="https://www.instagram.com/eltiolucas.ia/">@eltiolucas.ia</a>)<br>
+    <b>Fecha:</b> 21 de octubre de 2026<br>
+    <b>Estado:</b> producto mínimo funcional, sin publicar<br>
+    <b>Código fuente abierto:</b> <a href="https://github.com/LucassToledo/mapa-inundaciones-nea">github.com/LucassToledo/mapa-inundaciones-nea</a><br>
+    <b>Video explicativo:</b> 52 segundos, incluido junto a este documento
+  </div>
+</section>
+
+<h2>1. Resumen</h2>
+<p>El mapa de inundaciones del Chaco y el NEA es un sitio web público que reúne en una sola pantalla las fuentes abiertas disponibles durante una emergencia hídrica: imágenes de radar del satélite Sentinel-1 procesadas por Copernicus, alturas de los ríos del INA contra sus cotas de alerta, avisos del Servicio Meteorológico Nacional, noticias de prensa ubicadas por localidad y videos que circulan, con su fecha.</p>
+<p>La persona escribe el nombre de su localidad, elige un radio de 5, 10 o 25 km y el mapa muestra cuántos kilómetros cuadrados de agua detectó el satélite en esa zona, de qué día es la pasada y cómo cambió respecto de la anterior. Funciona en el navegador del celular, no pide registro y no necesita servidor propio para la parte de consulta.</p>
+<p>Se solicita al ICCTI un subdominio con HTTPS para publicar los archivos estáticos y, si es posible, un proceso Python liviano para recibir y moderar los reportes de los usuarios. Las secciones 8 y 9 detallan los requisitos y lo que queda pendiente.</p>
+
+<h2>2. Problema y público</h2>
+<p>Durante una crecida, la información útil está repartida entre sitios que no se parecen: el INA publica alturas por estación, el SMN publica alertas por zona, los medios publican notas sin coordenadas y las redes sociales difunden videos sin fecha verificable. Un vecino que quiere saber si su barrio está en riesgo, o un equipo municipal que prioriza dónde enviar recursos, tiene que abrir cuatro o cinco sitios y cruzar los datos a mano.</p>
+<p>La herramienta apunta a tres públicos: el público general (consulta de su zona), los municipios y Defensa Civil (panorama regional y seguimiento de ríos) y los medios y organizaciones que necesitan un mapa citable con fuentes y fechas visibles.</p>
+
+<h2>3. Cómo se usa, sección por sección</h2>
+<p>Las capturas son de la herramienta real, tomadas el 21 de octubre de 2026 con datos vigentes ese día.</p>
+
+<h3>3.1 Recorrido guiado de primer ingreso</h3>
+<p>La primera vez que alguien abre el sitio aparece un recorrido de seis pasos que señala el buscador, los botones de radio, las pestañas y el reproductor. Se puede saltar y no vuelve a mostrarse en ese navegador. El botón «?» del encabezado lo reabre.</p>
+<figure><img src="img/01-recorrido.png"><figcaption>Figura 1. Primer paso del recorrido guiado, sobre el buscador de localidades.</figcaption></figure>
+
+<h3>3.2 Pantalla de inicio y resumen</h3>
+<p>El mapa abre sobre el Chaco y el NEA. El panel derecho muestra tres números del momento: ríos sobre su cota de alerta, notas de prensa de las últimas 72 horas y alertas del SMN vigentes. La franja superior con el aviso «Información automática y NO oficial» permanece visible en todo momento y remite al 911 y a Defensa Civil.</p>
+<figure><img src="img/02-inicio.png"><figcaption>Figura 2. Pantalla de inicio. Las marcas del mapa corresponden a estaciones de ríos, eventos de prensa y alertas.</figcaption></figure>
+
+<h3>3.3 Elegir una zona y ver lo inundado</h3>
+<p>Se puede buscar una localidad, usar la ubicación del dispositivo o tocar un punto del mapa. El mapa se centra, dibuja el círculo del radio elegido y pinta de azul el agua detectada por el satélite. El panel indica los kilómetros cuadrados con agua, el porcentaje del círculo que representan, la fecha de la pasada del satélite, la cobertura de esa pasada y el cambio contra la pasada anterior. La zona queda guardada en el enlace, así que se puede compartir por mensaje.</p>
+<p>En la captura, la zona del río Uruguay en Corrientes, con radio de 10 km, muestra 5,4 km² con agua (1,7 % del círculo) en la pasada del 20 de octubre, con cobertura del 100 % y una variación de −2,3 km² frente al 15 de octubre.</p>
+<figure><img src="img/03-zona.png"><figcaption>Figura 3. Zona calculada: agua en azul, círculo de 10 km, métricas y alertas del SMN que alcanzan la zona.</figcaption></figure>
+<p>El reproductor de la parte inferior recorre las pasadas disponibles, hasta quince escenas, con un fundido entre una y otra. No interpola formas entre pasadas, porque eso mostraría agua que ningún satélite observó.</p>
+
+<h3>3.4 Pestaña Ríos</h3>
+<p>Lista las estaciones del INA con su altura actual, su diferencia con la cota de alerta y de evacuación, y una línea de tendencia. Las estaciones sin cota publicada se muestran en gris, para que nadie lea un dato que no existe.</p>
+<figure><img src="img/04-rios.png"><figcaption>Figura 4. Ríos ordenados por cercanía a su cota de alerta, con fecha de actualización.</figcaption></figure>
+
+<h3>3.5 Pestaña Prensa</h3>
+<p>Muestra titulares recolectados de Google Noticias y de medios locales, ubicados por palabras clave en la localidad que mencionan. Se publican sin revisión humana, por decisión de diseño: en una emergencia no hay tiempo de verificar cada nota. Cada nota lleva el nombre del medio, la antigüedad, un enlace a la fuente original y un filtro por tipo (evacuación, anegamiento, ruta cortada, alerta).</p>
+<figure><img src="img/05-prensa.png"><figcaption>Figura 5. Notas de prensa con su tipo, medio y localidad. El aviso de que no están verificadas es permanente.</figcaption></figure>
+
+<h3>3.6 Pestaña Alertas</h3>
+<p>Presenta las alertas vigentes del SMN con su nivel, fenómeno y horario de vencimiento, el texto completo del aviso desplegable, un enlace para ver el área en el mapa y la fuente. Al elegir una zona, el panel de Resumen muestra solo las alertas que la alcanzan.</p>
+<figure><img src="img/06-alertas.png"><figcaption>Figura 6. Alertas del SMN vigentes para la región.</figcaption></figure>
+
+<h3>3.7 Pestaña Videos</h3>
+<p>Reúne videos que circulan, siempre con la fecha de publicación a la vista. Un video entra a esta lista solo después de que una persona lo revisó. Hoy la lista está vacía a propósito: no se cargó ningún video sin comprobar. Mientras tanto la pestaña ofrece búsquedas directas en YouTube, X y TikTok.</p>
+<figure><img src="img/07-videos.png"><figcaption>Figura 7. Pestaña Videos, sin material verificado todavía.</figcaption></figure>
+
+<h3>3.8 Pestaña Enviar</h3>
+<p>Un formulario permite que cualquier persona informe agua, una evacuación, un camino cortado o un video. Los campos son tipo de hecho, lugar, fecha, descripción, enlace opcional y contacto opcional. Los envíos nunca se publican solos: quedan pendientes hasta que un moderador los aprueba.</p>
+<figure><img src="img/08-enviar.png"><figcaption>Figura 8. Formulario de envío de reportes.</figcaption></figure>
+
+<h3>3.9 Aviso legal y uso en celular</h3>
+<p>El aviso aclara qué es cada fuente, sus límites y que la información es automática y no oficial. Se abre desde el encabezado y también la primera vez que se usa el sitio.</p>
+<figure><img src="img/09-aviso.png"><figcaption>Figura 9. Aviso «Antes de usar este mapa».</figcaption></figure>
+<p>En pantallas angostas el panel pasa a una hoja inferior que se desliza, y el mapa queda visible por encima.</p>
+<figure class="cel"><img src="img/10-celular.png"><figcaption>Figura 10. Vista en un celular de 390 px de ancho.</figcaption></figure>
+
+<h2>4. Fuentes de datos</h2>
+<table>
+<tr><th>Dato</th><th>Fuente</th><th>Cómo se obtiene</th><th>Licencia o condición</th></tr>
+<tr><td>Agua detectada</td><td>Copernicus Global Flood Monitoring, vía el servicio de mosaicos del EODC</td><td>El navegador pide los mosaicos y cuenta los píxeles de agua</td><td>Datos abiertos de Copernicus. Servicio de terceros, sin garantía de disponibilidad</td></tr>
+<tr><td>Alturas de ríos</td><td>INA</td><td>Script de actualización</td><td>El INA no declara licencia. Conviene consultarla antes de un uso institucional amplio</td></tr>
+<tr><td>Alertas</td><td>Servicio Meteorológico Nacional</td><td>Script de actualización</td><td>CC BY 4.0, con atribución en el sitio</td></tr>
+<tr><td>Prensa</td><td>Google Noticias y RSS de medios locales</td><td>Script de actualización, con ubicación por palabras clave</td><td>Solo se muestran titulares y enlaces a la fuente original</td></tr>
+<tr><td>Localidades</td><td>Archivo propio (123 localidades y departamentos), Georef de datos.gob.ar y Nominatim de OpenStreetMap</td><td>Búsqueda en ese orden</td><td>Georef y OpenStreetMap, con atribución</td></tr>
+<tr><td>Mapa base</td><td>OpenStreetMap</td><td>Mosaicos públicos</td><td>Política de uso de OSM. Para tráfico alto se necesita un proveedor propio</td></tr>
+</table>
+
+<h2>5. Cómo se calcula el agua y qué límites tiene</h2>
+<p>El navegador pide a Copernicus los mosaicos sin color de la zona elegida. En esos mosaicos, un píxel con valor 1 en el canal rojo es agua y un píxel con transparencia total es una zona sin dato. Con eso el sitio calcula la superficie con agua y el porcentaje de la zona que la pasada cubrió. El cálculo tarda entre 15 y 25 segundos con radios de 10 y 25 km, porque retrocede hasta ocho pasadas buscando las dos más recientes que cubran al menos el 10 % de la zona.</p>
+<ul>
+<li>El radar no detecta bien el agua bajo vegetación densa ni en zonas urbanas. Un cero en esas áreas no prueba que no haya agua.</li>
+<li>Una pasada no ocurre todos los días. La fecha de cada pasada se muestra siempre.</li>
+<li>Las cifras son estimaciones. El sitio lo dice en el panel y en el aviso legal.</li>
+<li>Resistencia da 0,0 km² con cobertura completa en la pasada del 13 de octubre. El resultado es plausible, pero no se contrastó con otra fuente.</li>
+</ul>
+
+<h2>6. Moderación y responsabilidad editorial</h2>
+<table>
+<tr><th>Contenido</th><th>Tratamiento</th></tr>
+<tr><td>Satélite, ríos y alertas</td><td>Automático, con fecha y hora de cada capa. Pasadas 12 horas sin actualizar, la capa se marca «DATO VIEJO».</td></tr>
+<tr><td>Prensa</td><td>Publicación automática, sin revisión, con aviso permanente de que no está verificada.</td></tr>
+<tr><td>Videos</td><td>Solo después de revisión humana, con fecha de publicación y enlace a la fuente. Se busca el mismo video en fechas anteriores, porque circulan clips reciclados.</td></tr>
+<tr><td>Reportes de usuarios</td><td>Cola de moderación. Nada se publica sin aprobación.</td></tr>
+</table>
+<p>El aviso «Información automática y NO oficial. Ante una emergencia llamá al 911 y seguí a Defensa Civil» ocupa una franja fija en la parte superior. El texto del aviso legal todavía no pasó por una revisión jurídica.</p>
+
+<h2>7. Privacidad y seguridad</h2>
+<ul>
+<li>No hay cuentas ni registro. El sitio no usa cookies de seguimiento ni herramientas de analítica propias. La tipografía (Google Fonts) y las bibliotecas Leaflet y Motion se cargan desde servidores de terceros, que ven la dirección IP de quien visita. Para evitarlo, esos archivos se pueden copiar al servidor del ICCTI.</li>
+<li>La ubicación del dispositivo se usa solo si la persona toca el botón de ubicación, y se redondea a unos 1000 metros antes de ponerla en un enlace compartible.</li>
+<li>El contacto del formulario es opcional y solo lo ve el moderador.</li>
+<li>El servidor de reportes limita el cuerpo a 4000 bytes, acota el largo de cada campo, valida la fecha y el enlace, incluye un campo trampa contra bots y admite 5 envíos por dirección IP por hora. Guarda de cada envío un resumen irreversible de la IP, no la IP.</li>
+<li>El panel de moderación exige una clave larga definida por el administrador. Los archivos de base de datos y de código no se sirven por la web.</li>
+<li>El texto que viene de fuentes externas (prensa, alertas, envíos) se escapa antes de mostrarse, para que no pueda ejecutarse como código.</li>
+</ul>
+
+<h2>8. Requisitos de alojamiento</h2>
+<h3>Opción A: solo archivos estáticos</h3>
+<p>Se copian <code>index.html</code>, <code>estilo.css</code>, <code>app.js</code> y la carpeta <code>data/</code>. El código propio pesa unos 75 KB y los datos unos 210 KB sin comprimir, además de la biblioteca Leaflet y los mosaicos del mapa que se cargan desde otros servidores. Con esta opción, el formulario necesita un destino externo (un servicio de formularios o un correo) que se configura en una línea del código.</p>
+<h3>Opción B: archivos estáticos más un proceso Python</h3>
+<p>El archivo <code>servidor.py</code> usa solo la biblioteca estándar de Python 3 y SQLite. Recibe los reportes, los guarda en un archivo <code>envios.db</code> y ofrece una página de moderación. Si se aprueba un envío con un enlace de YouTube, lo agrega a la lista de videos. Corre detrás del proxy inverso del ICCTI, que aporta el HTTPS.</p>
+<h3>Actualización de datos</h3>
+<p>El script <code>actualizar.py</code> regenera los archivos de datos y también usa solo la biblioteca estándar. Se programa con cron: prensa, ríos y alertas cada 30 a 60 minutos, satélite cada 6 horas. Si una fuente falla, se conserva el archivo anterior y el sitio muestra su hora.</p>
+<div class="nota"><b>Requisitos mínimos.</b> Subdominio con HTTPS (el GPS del navegador lo exige), una tarea programada o la posibilidad de correr un script cada pocos minutos, y salida a internet desde el servidor para consultar las fuentes. Para la opción B, además, Python 3.10 o superior y un proxy que pase el tráfico a un puerto local.</div>
+
+<h2>9. Estado, pendientes y riesgos</h2>
+<table>
+<tr><th>Tema</th><th>Estado</th></tr>
+<tr><td>Funcionamiento</td><td>Probado en una computadora y en un celular emulado: búsqueda, pestañas, reproductor, recorrido guiado, errores del formulario. No se probó en celulares reales de gama baja ni con conexión 3G.</td></tr>
+<tr><td>Servidor de reportes</td><td>Verificado con su prueba automática. No se probó de punta a punta desde el formulario en un servidor real.</td></tr>
+<tr><td>Destino del formulario</td><td>Sin configurar. Hay que elegir la opción A o B antes de publicar.</td></tr>
+<tr><td>Videos</td><td>Lista vacía. Requiere una persona que revise y cargue.</td></tr>
+<tr><td>Mapa base</td><td>Usa los mosaicos públicos de OpenStreetMap, que no están pensados para mucho tráfico.</td></tr>
+<tr><td>Cobertura de datos</td><td>Hay datos en la caja entre 29,1° y 23,9° de latitud sur y entre 62,9° y 57,2° de longitud oeste. El mapa permite navegar toda Argentina, pero fuera de esa caja no hay datos.</td></tr>
+<tr><td>Certificados</td><td>Los sitios del INA, el SMN y chacodiapordia tenían certificados vencidos al momento de la prueba. El script reintenta sin verificar el certificado para esas lecturas públicas. Conviene avisar a esos organismos.</td></tr>
+<tr><td>Aspectos legales</td><td>El aviso legal no tuvo revisión jurídica. La licencia de los datos del INA no está declarada.</td></tr>
+<tr><td>Funciones futuras</td><td>Relieve y altimetría, vista operativa para Defensa Civil, pronóstico del INA, vista pública de reportes aprobados.</td></tr>
+</table>
+
+<h2>10. Solicitud al ICCTI</h2>
+<ol>
+<li>Un subdominio con HTTPS para publicar el sitio.</li>
+<li>Una definición sobre el alcance del alojamiento: solo archivos estáticos, o también un proceso Python con SQLite.</li>
+<li>Una persona o área responsable de la moderación de reportes y videos, o la autorización para que lo haga el autor.</li>
+<li>Una revisión jurídica del aviso legal antes de la publicación.</li>
+<li>La decisión sobre la marca: el sitio dice hoy «Mapa OSINT abierto · ICCTI» y lleva el crédito del autor en el encabezado y en el aviso legal.</li>
+</ol>
+
+<h2>11. Código abierto y contacto</h2>
+<p>El código completo, la documentación de instalación y los documentos de investigación que dieron origen al proyecto están en el repositorio público <a href="https://github.com/LucassToledo/mapa-inundaciones-nea">github.com/LucassToledo/mapa-inundaciones-nea</a>. Cualquier organismo puede revisarlo, copiarlo y auditarlo.</p>
+<p>Autor: Lucas Toledo, <a href="https://www.instagram.com/eltiolucas.ia/">@eltiolucas.ia</a> en Instagram.</p>
+
+<p class="pie">Documento generado a partir de la versión del proyecto del 21 de octubre de 2026. Las cifras de las capturas corresponden a los datos de ese día y cambian con cada actualización.</p>
+</body></html>
