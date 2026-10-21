@@ -84,7 +84,7 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, att
 map.createPane("gfm").style.zIndex = 250;
 const G = {}; ["est", "gfm", "pre", "ale", "vid", "zona"].forEach(k => G[k] = L.layerGroup().addTo(map));
 const sheetPx = () => document.body.classList.contains("sheet-open") ? Math.min(innerHeight * .52, 460) : 92;
-const pad = () => innerWidth > 800 ? { paddingTopLeft: [16, 190], paddingBottomRight: [440, 100] } : { paddingTopLeft: [10, 170], paddingBottomRight: [10, sheetPx() + 150] };
+const pad = () => innerWidth > 800 ? { paddingTopLeft: [16, 190], paddingBottomRight: [440, 100] } : { paddingTopLeft: [10, 170], paddingBottomRight: [10, sheetPx() + (document.body.classList.contains("sheet-open") ? 24 : 150)] };
 const fit = (b, mz = 14) => (reduce ? map.fitBounds(b, { ...pad(), maxZoom: mz }) : map.flyToBounds(b, { ...pad(), maxZoom: mz, duration: .9 }));
 const ir = (lat, lon, r = 3) => fit(L.latLng(lat, lon).toBounds(r * 1000));
 map.fitBounds(CFG.bounds, pad());
@@ -350,25 +350,29 @@ const compartir = async () => {
   const u = location.href;
   try { if (navigator.share) { await navigator.share({ title: "Inundaciones: " + Z.n, url: u }); return; } await navigator.clipboard.writeText(u); toast("Enlace copiado."); } catch { toast("Copiá el enlace desde la barra del navegador."); }
 };
-function setZona(lat, lon, nombre, r = Z.r) {
-  Object.assign(Z, { lat, lon, r, n: nombre || "Punto en el mapa" });
+function setZona(lat, lon, nombre, r = Z.r, ap = false) {   // ap: punto privado (casa o GPS); el enlace guarda solo una zona aproximada
+  Object.assign(Z, { lat, lon, r, ap, n: nombre || "Punto en el mapa" });
   const t = ++tokZ;
   G.zona.clearLayers();
   L.circle([lat, lon], { radius: r * 1000, color: "#0a63c9", weight: 2, dashArray: "6 6", fillOpacity: .04, interactive: false }).addTo(G.zona);
   L.marker([lat, lon], { icon: L.divIcon({ className: "", html: '<div class="yo"></div>', iconSize: [16, 16] }), interactive: false, keyboard: false }).addTo(G.zona);
-  history.replaceState(null, "", `#z=${lat.toFixed(3)},${lon.toFixed(3)},${r}&n=${encodeURIComponent(Z.n)}`);
+  history.replaceState(null, "", ap ? `#z=${lat.toFixed(2)},${lon.toFixed(2)},${r}&ap=1&n=${encodeURIComponent("Mi dirección")}` : `#z=${lat.toFixed(3)},${lon.toFixed(3)},${r}&n=${encodeURIComponent(Z.n)}`);
   $$("#radio .chip").forEach(b => b.setAttribute("aria-pressed", +b.dataset.r === r));
   tab("resumen"); if (innerWidth <= 800) document.body.classList.add("sheet-open");
   $("#zona").innerHTML = `<div class="card beam"><div class="zh"><div><h2>${esc(Z.n)}</h2><span class="mut">Radio ${r} km · ${lat.toFixed(3)}, ${lon.toFixed(3)}</span></div><button type="button" class="btn sec" id="z-share">Compartir</button></div>
-   <div id="z-sat"><div class="skel" style="width:60%"></div><div class="skel"></div><div class="skel" style="width:80%"></div><p class="mut">Midiendo el agua detectada por el satélite…</p></div></div>${nearby()}`;
+   <h3 class="sec" style="margin-top:12px">¿Hay agua en tu punto?</h3><div id="c-ahora"><div class="skel" style="width:60%"></div><div class="skel"></div><p class="mut">Consultando las últimas fotos del satélite…</p></div></div>
+   <h3 class="sec">Fotos del satélite, fecha por fecha</h3><div class="card" id="c-fotos"><div class="skel"></div><div class="skel" style="width:70%"></div></div>
+   <h3 class="sec">Qué se espera en los próximos meses</h3><div class="card" id="c-prev"><div class="skel" style="width:70%"></div><div class="skel"></div><p class="mut">Consultando el pronóstico de caudales…</p></div>
+   <h3 class="sec">Agua detectada por radar en el radio de ${r} km</h3><div class="card" id="z-sat"><div class="skel" style="width:60%"></div><div class="skel"></div><div class="skel" style="width:80%"></div><p class="mut">Midiendo el agua detectada por el satélite…</p></div>${nearby()}`;
   $("#z-share").onclick = compartir; entra($$("#zona > *"), 0, false);
   fit(L.latLng(lat, lon).toBounds(r * 2000), 14);
+  casa(lat, lon, t);
   if (!fechas.length) return pintaSat([]);
   const ok = { tok: t, cb: res => t === tokZ && pintaSat(res) };
   Object.defineProperty(ok, "tok", { get: () => tokZ });
   analizar(lat, lon, r, ok, t).catch(() => t === tokZ && pintaSat([]));
 }
-$("#radio").addEventListener("click", e => { const b = e.target.closest("[data-r]"); if (!b) return; const r = +b.dataset.r; $$("#radio .chip").forEach(x => x.setAttribute("aria-pressed", x === b)); Z.r = r; if (Z.lat != null) setZona(Z.lat, Z.lon, Z.n, r); });
+$("#radio").addEventListener("click", e => { const b = e.target.closest("[data-r]"); if (!b) return; const r = +b.dataset.r; $$("#radio .chip").forEach(x => x.setAttribute("aria-pressed", x === b)); Z.r = r; if (Z.lat != null) setZona(Z.lat, Z.lon, Z.n, r, Z.ap); });
 
 /* búsqueda: lugares locales + Georef al escribir; Nominatim (barrios y calles) al apretar Enter */
 const q = $("#q"), sug = $("#sug"); let items = [], sel = -1, tokQ = 0;
@@ -384,32 +388,36 @@ async function georef(t) {
 }
 async function nominatim(t) {
   const j = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=ar&accept-language=es&q=" + encodeURIComponent(t)).then(r => r.json());
-  return j.map(x => { const p = x.display_name.split(", "); return { n: p.slice(0, 2).join(", "), lat: +x.lat, lon: +x.lon, sub: p.slice(-2, -1)[0] || "" }; });
+  return j.map(x => { const p = x.display_name.split(", "); return { n: p.slice(0, 2).join(", "), lat: +x.lat, lon: +x.lon, sub: p.slice(-2, -1)[0] || "", ap: true }; });
 }
 const sugiere = deb(async t => {
-  const k = ++tokQ, l = local(t); muestra(l);
+  const k = ++tokQ, l = local(t); muestra(l.concat(t.length >= 3 ? dir(t) : []));
   if (t.length < 3) return;
-  try { const g = await georef(t); if (k !== tokQ) return; const vistos = new Set(l.map(x => norm(x.n))); muestra([...l, ...g.filter(x => !vistos.has(norm(x.n)))].slice(0, 7)); } catch { }
+  try { const g = await georef(t); if (k !== tokQ) return; const vistos = new Set(l.map(x => norm(x.n))); muestra([...l, ...g.filter(x => !vistos.has(norm(x.n)))].slice(0, 6).concat(dir(t))); } catch { }
 }, 250);
 q.addEventListener("input", () => q.value.trim().length >= 2 ? sugiere(q.value.trim()) : muestra([]));
-const elige = x => { muestra([]); q.value = x.n; setZona(x.lat, x.lon, x.n); q.blur(); };
+const dir = t => [{ n: "Buscar «" + t + "» como dirección", sub: "Calle y número, con la ciudad", dir: true }];
+const elige = x => { if (x.dir) return buscaDir(q.value.trim()); muestra([]); q.value = x.n; setZona(x.lat, x.lon, x.n, Z.r, !!x.ap); q.blur(); };
 sug.addEventListener("mousedown", e => { const li = e.target.closest("li"); if (li) { e.preventDefault(); elige(items[li.dataset.i]); } });
 q.addEventListener("keydown", e => {
   if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!items.length) return; sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length; $$("#sug li").forEach((li, i) => li.setAttribute("aria-selected", i === sel)); q.setAttribute("aria-activedescendant", "s" + sel); }
   if (e.key === "Escape") muestra([]);
 });
 q.addEventListener("blur", () => setTimeout(() => muestra([]), 150));
-$("#buscar").addEventListener("submit", async e => {
+async function buscaDir(t) {
+  toast("Buscando…", 1500);
+  try { const l = await nominatim(t); if (!l.length) return toast("No encontramos ese lugar. Probá con calle, número, ciudad y provincia."); l.length === 1 ? elige(l[0]) : (muestra(l), q.focus()); } catch { toast("No pudimos buscar ahora. Probá con el nombre de la localidad."); }
+}
+$("#buscar").addEventListener("submit", e => {
   e.preventDefault(); const t = q.value.trim(); if (t.length < 2) return;
   if (sel >= 0) return elige(items[sel]);
   if (items.length && norm(items[0].n) === norm(t)) return elige(items[0]);
-  toast("Buscando…", 1500);
-  try { const l = await nominatim(t); if (!l.length) return toast("No encontramos ese lugar. Probá con la localidad o el barrio y la provincia."); l.length === 1 ? elige(l[0]) : (muestra(l), q.focus()); } catch { toast("No pudimos buscar ahora. Probá con el nombre de la localidad."); }
+  buscaDir(t);
 });
 $("#gps").addEventListener("click", () => {
   if (!navigator.geolocation) return toast("Tu navegador no permite usar la ubicación.");
   toast("Buscando tu ubicación…", 2500);
-  navigator.geolocation.getCurrentPosition(p => setZona(+p.coords.latitude.toFixed(2), +p.coords.longitude.toFixed(2), "Mi ubicación"),   // se redondea a ~1 km antes de poner nada en el enlace
+  navigator.geolocation.getCurrentPosition(p => setZona(p.coords.latitude, p.coords.longitude, "Mi ubicación", Z.r, true),   // punto exacto solo en memoria; el enlace lo redondea a ~1 km
     () => toast("No pudimos ubicarte. Revisá el permiso de ubicación o buscá tu localidad."), { timeout: 10000, maximumAge: 60000 });
 });
 const pickBtn = $("#pick");
@@ -417,6 +425,170 @@ const pick = v => { document.body.classList.toggle("pick", v); pickBtn.setAttrib
 pickBtn.addEventListener("click", () => pick(!document.body.classList.contains("pick")));
 map.on("click", e => { if (document.body.classList.contains("pick")) { pick(false); setZona(+e.latlng.lat.toFixed(3), +e.latlng.lng.toFixed(3), "Punto en el mapa"); } });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("pick")) pick(false); });
+
+/* ——— tu casa: fotos reales Sentinel-2 por fecha, comparación y pronóstico ——— */
+const PC = "https://planetarycomputer.microsoft.com/api/";
+const OM = ["https://flood-api.open-meteo.com/v1/flood", "https://seasonal-api.open-meteo.com/v1/seasonal"];
+const ESTF = { agua: ["Agua", "r"], cerca: ["Agua cerca", "w"], seco: ["Sin agua", "ok"], nube: ["Nubes", ""], nd: ["Sin dato", ""], nm: ["Sin medir", ""] };
+const MESL = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const ART = d => d.toLocaleDateString("sv-SE", { timeZone: TZ });          // AAAA-MM-DD en hora argentina
+const ext = u => fetch(u).then(r => { if (!r.ok) throw Error(r.status); return r.json(); });   // sin cache:"no-cache": evita una consulta previa (CORS) a terceros
+const mem = {}, una = (k, f) => mem[k] ??= f().catch(e => { delete mem[k]; throw e; });
+const medido = {};                                                          // id de foto + punto -> { e, pct }
+const C = { fotos: [], A: 0, B: 0, v: 50, capas: [null, null], toco: false, mide: false, key: "" };
+map.createPane("fotoA").style.zIndex = 240; map.createPane("fotoB").style.zIndex = 241;
+
+/* clases SCL de Sentinel-2: 6 agua, 3 sombra, 8-10 nube, 0 sin dato. c = clases de un cuadrado n×n (n impar) centrado en el punto */
+function clasifica(c, n) {
+  const m = n >> 1, cuenta = (f, r) => { let a = 0, t = 0; for (let y = m - r; y <= m + r; y++) for (let x = m - r; x <= m + r; x++) { t++; if (f(c[y * n + x])) a++; } return [a, t]; };
+  const nube = k => k === 3 || k === 8 || k === 9 || k === 10;
+  const [c0, ct] = cuenta(k => k === 0, 1), [cn] = cuenta(nube, 1), [cw] = cuenta(k => k === 6, 1), [aw, at] = cuenta(k => k === 6, m);
+  const e = c0 >= ct / 2 ? "nd" : cn >= ct / 2 ? "nube" : cw >= ct / 2 ? "agua" : aw / at >= .1 ? "cerca" : "seco";
+  return { e, pct: Math.round(aw / at * 100) };
+}
+async function sclEn(lat, lon, id) {
+  const n = 31, dy = 150 / 110574, dx = 150 / (111320 * Math.cos(lat * Math.PI / 180));          // cuadrado de 300 m
+  const u = `${PC}data/v1/item/bbox/${(lon - dx).toFixed(6)},${(lat - dy).toFixed(6)},${(lon + dx).toFixed(6)},${(lat + dy).toFixed(6)}/${n}x${n}.png?collection=sentinel-2-l2a&item=${id}&assets=SCL&asset_bidx=SCL%7C1`;
+  const r = await fetch(u); if (!r.ok) throw Error(r.status);
+  const b = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = n;
+  const x = cv.getContext("2d", { willReadFrequently: true }); x.drawImage(b, 0, 0);
+  const d = x.getImageData(0, 0, n, n).data, k = new Uint8Array(n * n);
+  for (let i = 0; i < k.length; i++) k[i] = d[i * 4 + 3] ? d[i * 4] : 0;                         // gris = clase SCL; transparente = sin dato
+  return clasifica(k, n);
+}
+async function fotos(lat, lon) {
+  const d0 = ART(new Date(Date.now() - 75 * 864e5));
+  const j = await fetch(PC + "stac/v1/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    collections: ["sentinel-2-l2a"], intersects: { type: "Point", coordinates: [lon, lat] }, datetime: d0 + "T00:00:00Z/..", limit: 100,
+    sortby: [{ field: "datetime", direction: "desc" }] }) }).then(r => { if (!r.ok) throw Error(r.status); return r.json(); });
+  const d = new Map();                                                                          // un cuadrante por fecha: el menos nublado
+  for (const f of j.features) { const dia = f.properties.datetime.slice(0, 10), nub = Math.round(f.properties["eo:cloud_cover"] ?? 100); if (!d.has(dia) || d.get(dia).nub > nub) d.set(dia, { f: dia, id: f.id, nub }); }
+  return [...d.values()].sort((a, b) => b.f.localeCompare(a.f));
+}
+const claro = f => f.e ? f.e !== "nube" && f.e !== "nd" && f.e !== "nm" : f.nub < 40;
+function defecto() {
+  const ok = C.fotos.map((f, i) => [f, i]).filter(([f]) => claro(f)), B = ok.length ? ok[0][1] : 0;
+  const lejos = ok.find(([f, i]) => i > B && P(C.fotos[B].f) - P(f.f) >= 14 * 864e5), sig = ok.find(([, i]) => i > B);
+  return [(lejos || sig || [0, Math.min(1, C.fotos.length - 1)])[1], B];
+}
+const etq = f => `${fdia(f.f)}${f.e ? " · " + ESTF[f.e][0] : ""} · nubes ${f.nub} %`;
+
+function clip() {
+  if (!C.capas[1]) return;
+  const s = map.getSize(), x = s.x * C.v / 100, a = map.containerPointToLayerPoint([0, 0]), b = map.containerPointToLayerPoint([s.x, s.y]), m = map.containerPointToLayerPoint([x, 0]);
+  map.getPane("fotoB").style.clip = `rect(${a.y}px,${b.x}px,${b.y}px,${m.x}px)`;
+  const ln = $("#cmp-line"); ln.style.left = x + "px"; ln.setAttribute("aria-valuenow", Math.round(C.v));
+}
+map.on("move zoom viewreset resize", clip);
+function marca() {
+  $$("#c-fotos .ft").forEach(b => b.classList.toggle("sel", +b.dataset.i === C.A || +b.dataset.i === C.B));
+  if (C.capas[1]) { $("#cmp-a").value = C.A; $("#cmp-b").value = C.B; }
+}
+function mostrar() {
+  C.capas.forEach(l => l && map.removeLayer(l));
+  C.capas = [C.A, C.B].map((i, k) => L.tileLayer(`${PC}data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x.png?collection=sentinel-2-l2a&item=${C.fotos[i].id}&assets=visual&asset_bidx=visual%7C1,2,3`,
+    { pane: k ? "fotoB" : "fotoA", minNativeZoom: 9, maxNativeZoom: 14, maxZoom: 19, errorTileUrl: VACIO, attribution: k ? "" : "Sentinel-2 © ESA/Copernicus vía Microsoft Planetary Computer" }).addTo(map));
+  const ln = $("#cmp-line"); $("#cmp").hidden = ln.hidden = false; document.body.classList.add("fotos");
+  $(".l", ln).textContent = "Antes · " + fdia(C.fotos[C.A].f); $(".r", ln).textContent = "Después · " + fdia(C.fotos[C.B].f);
+  marca(); clip();
+}
+function cerrar() {
+  C.capas.forEach(l => l && map.removeLayer(l)); C.capas = [null, null];
+  $("#cmp").hidden = $("#cmp-line").hidden = true; document.body.classList.remove("fotos"); map.getPane("fotoB").style.clip = "";
+}
+function opciones() { const o = C.fotos.map((f, i) => `<option value="${i}">${etq(f)}</option>`).join(""); $("#cmp-a").innerHTML = $("#cmp-b").innerHTML = o; }
+function listaFotos() {
+  const el = $("#c-fotos"); if (!el) return;
+  el.innerHTML = `<div class="ftl">${C.fotos.map((f, i) => { const [t, c] = f.e ? ESTF[f.e] : ["midiendo…", ""]; return `<button type="button" class="ft" data-i="${i}"><b>${fdia(f.f)}</b><span class="pill ${c}">${t}</span><small>nubes ${f.nub} %</small></button>`; }).join("")}</div>
+   <p class="nota">Fotos reales del satélite Sentinel-2 (10 m por píxel), una por fecha. Tocá una fecha para verla en el mapa y arrastrá la línea para compararla con otra. Con nubes el satélite no ve el suelo.</p>`;
+  marca();
+}
+function ahora() {
+  const el = $("#c-ahora"); if (!el) return;
+  const ap = Z.ap ? '<p class="nota">El enlace guarda una zona aproximada (a ~1 km) para no publicar tu dirección. Para ver tu punto exacto, buscala de nuevo.</p>' : "";
+  if (!C.fotos.length) { el.innerHTML = `<span class="pill">Sin fotos recientes</span><p class="nota">El satélite no pasó por este punto en los últimos 75 días, o queda fuera de su cobertura. Sin dato no significa sin agua.</p>${ap}`; return; }
+  if (C.mide) { el.innerHTML = `<div class="skel" style="width:70%"></div><div class="skel"></div><p class="mut">Midiendo ${C.fotos.filter(f => f.e).length} de ${C.fotos.length} fotos del satélite sobre tu punto…</p>`; return; }
+  const cl = C.fotos.filter(f => claro(f) && f.e);
+  if (!cl.length) { el.innerHTML = `<span class="pill">Sin foto clara</span><p class="nota">Todas las fotos de los últimos 75 días tienen nubes sobre tu punto, así que no se puede afirmar nada. Última pasada: ${fdia(C.fotos[0].f)}.</p>${ap}`; return; }
+  const a = cl[0], mojado = a.e === "agua" || a.e === "cerca", dias = Math.round((Date.now() - P(a.f)) / 864e5), cam = cl.find(f => (f.e === "agua") !== (a.e === "agua"));
+  const t = a.e === "agua" ? "Hay agua sobre tu punto" : a.e === "cerca" ? "Hay agua a menos de 150 m" : "Sin agua en tu punto";
+  const h = a.e === "agua" ? (cam ? `El ${fdia(cam.f)} no había: el agua apareció después.` : "Aparece en todas las fotos claras de los últimos 75 días: puede ser un río o una laguna permanente.")
+    : cam ? `El ${fdia(cam.f)} había agua sobre el punto y ya no.` : mojado ? "En las fotos claras anteriores tampoco estaba sobre el punto." : "En ninguna foto clara de los últimos 75 días hubo agua sobre el punto.";
+  el.innerHTML = `<span class="pill ${ESTF[a.e][1]}">${t}</span> <small class="mut">foto del ${fdia(a.f)}${dias > 10 ? ` (hace ${dias} días)` : ""}</small>
+   <p class="big2">${h}</p>${a.e === "cerca" ? `<p class="nota">${a.pct} % del entorno de 150 m aparece con agua.</p>` : ""}
+   <p class="nota">El satélite detecta superficie de agua, no su profundidad. Una sombra o un techo oscuro pueden confundirse con agua. Mirá las fotos de abajo para confirmarlo.</p>${ap}`;
+}
+async function casa(lat, lon, t) {
+  cerrar(); C.key = lat + "," + lon; C.toco = false; C.mide = true; C.fotos = [];
+  const vivo = () => t === tokZ;
+  pronostico(lat, lon, vivo);
+  let fs; try { fs = await una("f" + C.key, () => fotos(lat, lon)); } catch { fs = null; }
+  if (!vivo()) return;
+  if (!fs) { C.mide = false; $("#c-ahora").innerHTML = '<span class="pill">Sin conexión con el satélite</span><p class="nota">No pudimos consultar las fotos ahora. Probá de nuevo en unos minutos.</p>'; $("#c-fotos").innerHTML = '<p class="mut">No disponibles.</p>'; return; }
+  const k = f => C.key + f.id;
+  C.fotos = fs.map(f => ({ ...f, ...medido[k(f)] }));
+  [C.A, C.B] = defecto(); opciones(); listaFotos(); ahora();
+  if (C.fotos.length) { C.v = innerWidth > 800 ? (innerWidth - 420) / 2 / innerWidth * 100 : 50; mostrar(); }
+  const cola = C.fotos.slice(0, 24);
+  await pool(cola.filter(f => !f.e), 4, async f => {
+    try { Object.assign(f, medido[k(f)] = await sclEn(lat, lon, f.id)); } catch { f.e = "nd"; }
+    if (vivo()) { listaFotos(); ahora(); }
+  });
+  if (!vivo()) return;
+  C.fotos.slice(24).forEach(f => f.e = "nm"); C.mide = false;
+  ahora(); listaFotos(); opciones();
+  if (!C.toco && C.fotos.length) { const A = C.A, B = C.B; [C.A, C.B] = defecto(); if (A !== C.A || B !== C.B) mostrar(); else marca(); }
+  else marca();
+}
+$("#zona").addEventListener("click", e => {
+  const b = e.target.closest("#c-fotos .ft"); if (!b) return; const i = +b.dataset.i; C.toco = true;
+  if (!C.capas[1]) { [C.A, C.B] = defecto(); C.v = innerWidth > 800 ? (innerWidth - 420) / 2 / innerWidth * 100 : 50; }
+  C.B = i; if (C.A <= i) C.A = Math.min(i + 1, C.fotos.length - 1);                             // "antes" siempre es una fecha más vieja que "después"
+  mostrar();
+});
+$("#cmp-a").onchange = e => { C.toco = true; C.A = +e.target.value; mostrar(); };
+$("#cmp-b").onchange = e => { C.toco = true; C.B = +e.target.value; mostrar(); };
+$("#cmp-x").onclick = cerrar;
+{ // arrastrar la línea (o flechas del teclado) para comparar
+  const ln = $("#cmp-line"), pon = v => { C.v = Math.max(3, Math.min(97, v)); clip(); };
+  ln.addEventListener("pointerdown", e => { ln.setPointerCapture(e.pointerId); ln.dataset.d = 1; });
+  ln.addEventListener("pointermove", e => { if (ln.dataset.d) pon(e.clientX / innerWidth * 100); });
+  ln.addEventListener("pointerup", () => delete ln.dataset.d);
+  ln.addEventListener("keydown", e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); pon(C.v + (e.key === "ArrowLeft" ? -4 : 4)); } });
+}
+
+/* percentil de v dentro de un arreglo (% de valores menores) */
+const pct = (a, v) => a.length ? a.filter(x => x < v).length / a.length * 100 : NaN;
+const nivel = p => p >= 90 ? ["Muy alto", "r"] : p >= 75 ? ["Alto", "w"] : p >= 25 ? ["Normal", "ok"] : ["Bajo", ""];
+async function pronostico(lat, lon, vivo) {
+  const q = `latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`, hoy = ART(new Date()), ayer = ART(new Date(Date.now() - 864e5));
+  const [fl, hi, se] = await Promise.allSettled([
+    una("p1" + q, () => ext(`${OM[0]}?${q}&daily=river_discharge,river_discharge_median,river_discharge_p75&forecast_days=210&past_days=2`)),
+    una("p2" + q, () => ext(`${OM[0]}?${q}&daily=river_discharge&start_date=1984-01-01&end_date=${ayer}`)),
+    una("p3" + q, () => ext(`${OM[1]}?${q}&monthly=precipitation_anomaly,precipitation_mean&forecast_days=210`))]);
+  const el = $("#c-prev"); if (!el || !vivo()) return;
+  const falla = () => { el.innerHTML = '<span class="pill">Sin pronóstico</span><p class="nota">No pudimos consultar el pronóstico de caudales ahora. Probá más tarde o mirá la pestaña Ríos.</p>'; };
+  if (fl.status !== "fulfilled" || hi.status !== "fulfilled") return falla();
+  try {
+    const F = fl.value, H = hi.value, por = Array.from({ length: 12 }, () => ({ d: [], m: new Map() }));
+    H.daily.time.forEach((t, i) => { const v = H.daily.river_discharge[i]; if (v == null) return; const o = por[+t.slice(5, 7) - 1], y = t.slice(0, 4), s = o.m.get(y) || [0, 0]; o.d.push(v); s[0] += v; s[1]++; o.m.set(y, s); });
+    const medias = por.map(o => [...o.m.values()].filter(s => s[1] >= 20).map(s => s[0] / s[1]));  // caudal medio de ese mes en cada año desde 1984
+    const i0 = F.daily.time.findIndex(t => t >= hoy), cen = F.daily.river_discharge_median, alt = F.daily.river_discharge_p75, hoyV = F.daily.river_discharge[i0];
+    if (i0 < 0 || hoyV == null) return falla();
+    const meses = new Map();                                                                    // ponytail: el mes en curso se promedia desde hoy y se compara con meses completos; alcanza como señal
+    for (let i = i0; i < F.daily.time.length; i++) { if (cen[i] == null || alt[i] == null) continue; const k = F.daily.time[i].slice(0, 7), s = meses.get(k) || { c: 0, a: 0, n: 0 }; s.c += cen[i]; s.a += alt[i]; s.n++; meses.set(k, s); }
+    const lluvia = new Map(se.status === "fulfilled" ? se.value.monthly.time.map((t, i) => [t.slice(0, 7), se.value.monthly.precipitation_anomaly[i]]) : []);
+    const filas = [...meses].filter(([, s]) => s.n >= 10).map(([k, s]) => { const m = +k.slice(5) - 1; return { m, c: pct(medias[m], s.c / s.n), a: pct(medias[m], s.a / s.n), ll: lluvia.get(k) }; });
+    const dist = hav(lat, lon, F.latitude, F.longitude), mh = +hoy.slice(5, 7) - 1, pHoy = pct(por[mh].d, hoyV);
+    const prox = filas.slice(0, 3), peor = Math.max(...prox.map(f => f.c)), peorA = Math.max(...prox.map(f => f.a));
+    const [tit, cls] = peor >= 90 ? ["Se espera un río muy alto para la época", "r"] : peor >= 75 ? ["Se espera un río alto para la época", "w"] : peorA >= 90 ? ["Río normal, pero alto si llueve más de lo normal", "w"] : ["No se espera un río fuera de lo normal", "ok"];
+    const lej = dist > 10 ? `<p class="nota"><b>El punto del río modelado está a ${nf(dist, 0)} km de tu dirección.</b> Puede ser otra cuenca: tomalo como referencia regional.</p>` : "";
+    el.innerHTML = `<span class="pill ${cls}">${tit}</span> <small class="mut">próximos 3 meses</small>
+     <p class="big2">Hoy el río modelado lleva ${nf(hoyV, 0)} m³/s, más que el ${nf(pHoy, 0)} % de los días de ${MESL[mh]} desde 1984.</p>
+     <div class="mtab" role="table" aria-label="Pronóstico por mes">${filas.map(f => { const [n, c] = nivel(f.c), [na] = nivel(f.a); return `<div class="mrow" role="row"><b>${MESL[f.m]}</b><span class="pill ${c}">Río ${n.toLowerCase()}</span><small>si llueve más: ${na.toLowerCase()}</small>${f.ll != null ? `<small class="ll">lluvia ${f.ll > 0 ? "+" : f.ll < 0 ? "−" : ""}${nf(Math.abs(f.ll), 0)} mm</small>` : ""}</div>`; }).join("")}</div>
+     ${lej}<p class="nota">Pronóstico regional del modelo GloFAS (caudal del río más cercano, a ${nf(dist, 1)} km de tu punto) y de lluvia estacional. Compara cada mes con ese mismo mes de 1984 a hoy. <b>No dice si el agua llega a tu casa</b>: eso depende de la altura de tu terreno y de las defensas del lugar. Usalo como alerta temprana.</p>`;
+  } catch { falla(); }
+}
 
 /* ——— resumen global y zonas rápidas ——— */
 function renderStats() {
@@ -456,7 +628,7 @@ $("#form").addEventListener("submit", async e => {
 function tour() {
   const m = innerWidth <= 800;
   const pasos = [
-    ["#buscar", "Buscá tu zona", "Escribí una localidad o barrio, tocá ◎ para usar tu ubicación o 📍 para marcar un punto en el mapa."],
+    ["#buscar", "Poné tu dirección", "Escribí tu dirección con calle y ciudad y apretá Enter. También podés tocar ◎ para usar tu ubicación o 📍 para marcar un punto en el mapa."],
     ["#radio", "Elegí el radio", "Define cuánto alrededor querés mirar: 5, 10 o 25 km."],
     [m ? "#tabs" : "#panel", "Secciones", "Resumen de tu zona, Prensa, Ríos, Alertas, Videos y Enviar. Cada una tiene un “¿Cómo se lee esto?” arriba."],
     ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
@@ -495,6 +667,10 @@ function autotest() {
   console.assert(pip(0, 0, [[-1, -1], [-1, 1], [1, 1], [1, -1]]) && !pip(5, 5, [[-1, -1], [-1, 1], [1, 1], [1, -1]]), "pip");
   const [px, py] = ll2px(0, 0, 1), [la, lo] = tile2ll(px / 256, py / 256, 1);
   console.assert(Math.abs(la) < 1e-9 && Math.abs(lo) < 1e-9, "ll2px/tile2ll");
+  const sc = (f, n = 5) => Uint8Array.from({ length: n * n }, (_, i) => f(i % n, i / n | 0));
+  console.assert(clasifica(sc(() => 6), 5).e === "agua" && clasifica(sc(() => 4), 5).e === "seco" && clasifica(sc(() => 9), 5).e === "nube" && clasifica(sc(() => 0), 5).e === "nd", "clasifica: casos puros");
+  console.assert(clasifica(sc((x, y) => x === 0 ? 6 : 4), 5).e === "cerca" && clasifica(sc((x, y) => x === 0 ? 6 : 4), 5).pct === 20, "clasifica: agua al costado = cerca");
+  console.assert(pct([1, 2, 3, 4], 3) === 50 && pct([], 1) !== pct([], 1), "pct");
   console.log("autotest ok"); document.title = "autotest ok";
 }
 if (location.search === "?test") autotest();
@@ -516,8 +692,8 @@ if (location.search === "?test") autotest();
       M.animate("#dock .dk", { opacity: [0, 1], transform: ["translateY(14px)", "translateY(0px)"] }, { duration: .4, delay: M.stagger(.06, { startDelay: .25 }) });
     } catch { }
   }
-  const h = /z=(-?[\d.]+),(-?[\d.]+),(\d+)(?:&n=(.*))?/.exec(location.hash);
-  if (h && [5, 10, 25].includes(+h[3])) { let n = "Punto en el mapa"; try { n = decodeURIComponent(h[4] || n).slice(0, 60); } catch { } q.value = n === "Punto en el mapa" || n === "Mi ubicación" ? "" : n; setZona(+h[1], +h[2], n, +h[3]); }
+  const h = /z=(-?[\d.]+),(-?[\d.]+),(\d+)(&ap=1)?(?:&n=(.*))?/.exec(location.hash);
+  if (h && [5, 10, 25].includes(+h[3])) { let n = "Punto en el mapa"; try { n = decodeURIComponent(h[5] || n).slice(0, 60); } catch { } q.value = ["Punto en el mapa", "Mi ubicación", "Mi dirección"].includes(n) ? "" : n; setZona(+h[1], +h[2], n, +h[3], !!h[4]); }
   else if (!store.get("tour-ok")) { $(".ayuda").open = true; setTimeout(tour, 1200); }
 })();
 })();

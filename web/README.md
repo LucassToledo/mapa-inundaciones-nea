@@ -9,11 +9,17 @@ Creado por [@eltiolucas.ia](https://www.instagram.com/eltiolucas.ia/) (el crédi
 
 ## Qué hace
 
-- **Elegir una zona** (buscador de localidades, GPS o punto en el mapa) + radio de 5/10/25 km. El mapa se centra y el panel muestra km² con agua, fecha de la pasada, cobertura, cambio contra la pasada anterior, ríos cercanos, alertas del SMN y notas de prensa. El enlace (`#z=lat,lon,radio&n=nombre`) abre la misma zona; la ubicación GPS se redondea a ~1 km antes de ponerla en el enlace.
+- **Tu dirección** (buscador de direcciones y localidades, GPS o punto en el mapa) + radio de 5/10/25 km. El mapa se centra y el panel responde primero "¿hay agua en tu punto?" con la última foto clara, y debajo:
+  - **Fotos Sentinel-2 por fecha** (Microsoft Planetary Computer, color real de 10 m, últimos 75 días). Se elige una foto "antes" y otra "después" y se comparan con una barra deslizable sobre el mapa. Cada foto se clasifica con la banda SCL en un cuadrado de 300 m alrededor del punto: agua, agua a menos de 150 m, sin agua, nubes o sin dato.
+  - **Pronóstico por mes** (Open-Meteo: caudal GloFAS y lluvia estacional): nivel del río de los próximos meses comparado con el mismo mes desde 1984, y el escenario "si llueve más". Es regional: muestra a cuántos km está el río modelado y no considera la altura del terreno.
+  - Agua detectada por radar (Copernicus GFM), ríos cercanos, alertas del SMN y notas de prensa, como antes.
+  - El enlace (`#z=lat,lon,radio&n=nombre`) abre la misma zona. Las direcciones y el GPS se redondean a 2 decimales (~1 km), llevan `&ap=1` y se llaman "Mi dirección" o "Mi ubicación" en el enlace.
 - **Cálculo del agua**: se piden los tiles crudos de Copernicus GFM y se cuentan los píxeles en el navegador (alfa 255 = dato válido, canal R = 1 es agua). Tarda unos 15–25 s con 10–25 km y reintenta hasta 8 pasadas hacia atrás, quedándose con las 2 que cubren ≥ 10 % de la zona.
 - **Reproductor**: recorre las pasadas con fundido de opacidad. No interpola formas entre pasadas (inventaría agua).
 - **Tutoriales**: recorrido guiado al primer ingreso (se recuerda en `localStorage`) y ayuda “¿Cómo se lee esto?” en cada pestaña.
-- Búsqueda: primero `data/lugares.json` (123 localidades y departamentos), luego Georef (datos.gob.ar) y, solo al apretar Enter, Nominatim (OSM).
+- Búsqueda: primero `data/lugares.json` (123 localidades y departamentos), luego Georef (datos.gob.ar) y, al apretar Enter o tocar "Buscar como dirección", Nominatim (OSM).
+- **Terceros desde el navegador del usuario**: las coordenadas (y la IP) llegan a Microsoft Planetary Computer y a Open-Meteo al abrir una zona, y el texto buscado a datos.gob.ar y OSM. Está dicho en el aviso legal. Open-Meteo es gratis solo para uso no comercial: consultar antes de un uso institucional con mucho tráfico.
+- **CONAE**: su página de inundaciones es estática (2015) y no ofrece servicio de mapas, por eso no se integra. Detalle en `investigacion/08-fotos-satelitales-y-pronostico.md`.
 
 ## Probar en local
 
@@ -68,6 +74,8 @@ Si se aprueba desde `/admin`, la fecha guardada es la del hecho que informó el 
 - Prensa: titulares de Google News y RSS locales, ubicados por palabras clave, publicados sin revisión por decisión de diseño, con aviso visible.
 - Satélite: Copernicus GFM vía EODC (titiler), servicio de terceros sin garantía. “Sin color” = sin agua detectada **o** sin pasada. No ve bien agua bajo vegetación densa ni en zonas urbanas. Resistencia da 0,0 km² con 100 % de cobertura en la pasada 13/10; es plausible pero no está confirmado con otra fuente.
 - Certificados: INA, SMN y chacodiapordia fallan la verificación TLS en Python (certificado vencido). `get()` reintenta sin verificar; son datos públicos de solo lectura, conviene avisarles.
+- Fotos: Sentinel-2 pasa cada 2 a 5 días y en octubre de 2026 muchas escenas del NEA tienen más de 70 % de nubes. "Sin agua" se dice solo con una foto clara. La clasificación SCL puede confundir sombras o techos oscuros con agua. Planetary Computer es un servicio de terceros sin garantía.
+- Pronóstico: grilla de ~5 km que se ajusta al río más cercano, que puede ser otro cauce (un punto de Resistencia cae a un arroyo y no al Paraná). No incluye relieve ni defensas. No prueba que el agua llegue o no a una casa.
 - Mapa base: tiles públicos de OpenStreetMap, no aptos para mucho tráfico. Usar un proveedor con clave (MapTiler, Stadia) o tiles propios.
 - Leaflet y Motion vienen de CDN; para funcionar sin ellas copiar los archivos junto a `index.html`.
 - No hay aún: DEM/relieve, vista operativa para Defensa Civil, pronóstico del INA, vista pública de reportes aprobados, revisión legal del aviso. Peso en 3G y pruebas en celulares reales sin medir.
