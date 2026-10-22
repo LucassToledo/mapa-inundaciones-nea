@@ -3,6 +3,9 @@ name: pages
 on:
   push:
     branches: [main]
+  workflow_run:            # el push del bot de datos no dispara este workflow por sí solo
+    workflows: [datos]
+    types: [completed]
   workflow_dispatch:
 permissions:
   contents: read

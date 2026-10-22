@@ -88,8 +88,8 @@ map.removeLayer(G.ale);
 const sheetPx = () => document.body.classList.contains("sheet-open") ? Math.min(innerHeight * .52, 460) : 92;
 const BC = document.body.classList;
 const pad = () => {
-  const so = BC.contains("solo"), tm = BC.contains("top-min");
-  if (innerWidth > 800) return { paddingTopLeft: [so ? 16 : 404, 60], paddingBottomRight: [so || BC.contains("panel-min") ? 16 : 440, 40] };
+  const so = BC.contains("izq-x"), tm = BC.contains("top-min");
+  if (innerWidth > 800) return { paddingTopLeft: [so ? 16 : 364, 60], paddingBottomRight: [BC.contains("panel-x") || BC.contains("panel-min") ? 16 : 384, 40] };
   return { paddingTopLeft: [10, so ? 70 : tm ? 110 : 170], paddingBottomRight: [10, so ? 100 : sheetPx() + (BC.contains("sheet-open") ? 24 : 150)] };
 };
 const fit = (b, mz = 14) => (reduce ? map.fitBounds(b, { ...pad(), maxZoom: mz }) : map.flyToBounds(b, { ...pad(), maxZoom: mz, duration: .9 }));
@@ -100,7 +100,7 @@ map.fitBounds(CFG.bounds, pad());   // el arranque (inicio) acerca a Resistencia
 function tab(p, abrir = true) {
   $$("#tabs [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.p === p));
   $$(".panel").forEach(s => s.hidden = s.id !== "p-" + p);
-  if (abrir) { document.body.classList.add("sheet-open"); document.body.classList.remove("panel-min"); }
+  if (abrir) { document.body.classList.add("sheet-open"); document.body.classList.remove("panel-min"); cierra("panel", false); }
   entra($$(`#p-${p} .card`).slice(0, 12), 0, false);
 }
 $("#tabs").addEventListener("click", e => { const b = e.target.closest("[role=tab]"); if (b) tab(b.dataset.p); });
@@ -126,11 +126,17 @@ $$(".dk[data-l]").forEach(b => b.addEventListener("click", () => {
   if (l === "cam") camEstado();
   if (l === "hd") hdEstado();
 }));
-{ // minimizar encabezado y panel, y modo solo mapa
+// cerrar un panel (lado "izq" o "panel"); se reabre con el botón chico de su esquina
+function cierra(lado, v) {
+  BC.toggle(lado + "-x", v); $("#abrir-" + lado).hidden = !v;
+  $("#solo").setAttribute("aria-pressed", BC.contains("izq-x") && BC.contains("panel-x"));
+  if (v && lado === "panel") BC.remove("sheet-open");
+}
+{ // minimizar y cerrar cada panel, y modo solo mapa
   const alt = (id, cls) => $(id).addEventListener("click", e => { const v = BC.toggle(cls); e.currentTarget.setAttribute("aria-expanded", !v); e.currentTarget.title = v ? "Mostrar" : "Minimizar"; });
   alt("#min-top", "top-min"); alt("#min-panel", "panel-min");
-  const solo = v => { BC.toggle("solo", v); $("#solo").setAttribute("aria-pressed", v); $("#solo-x").hidden = !v; if (v) BC.remove("sheet-open"); };
-  $("#solo").addEventListener("click", () => solo(!BC.contains("solo"))); $("#solo-x").addEventListener("click", () => solo(false));
+  for (const l of ["izq", "panel"]) { $("#x-" + l).addEventListener("click", () => cierra(l, true)); $("#abrir-" + l).addEventListener("click", () => cierra(l, false)); }
+  $("#solo").addEventListener("click", () => { const v = $("#solo").getAttribute("aria-pressed") !== "true"; cierra("izq", v); cierra("panel", v); });
 }
 const stamp = (id, iso) => {
   const el = $("#" + id); if (!el || !iso) return;
@@ -168,7 +174,7 @@ function renderRios(j) {
   const con = D.est.filter(e => e.estado !== "sin_cota"), sin = D.est.filter(e => e.estado === "sin_cota");
   $("#rios").innerHTML = con.map(e => estCard(e)).join("") + (sin.length ? `<details class="card"><summary><b>${sin.length} estaciones sin cota cargada</b><br><small>Miden la altura pero no sabemos desde qué altura hay riesgo. Gris no significa “bien”.</small></summary><div style="margin-top:8px">${sin.map(e => estCard(e)).join("")}</div></details>` : "");
   stamp("rios", j.actualizado);
-  $("#t-est").textContent = `Ríos: ${D.est.length} estaciones, ${con.filter(e => e.estado !== "normal").length} sobre alerta`;
+  $("#t-est").textContent = `Altura en ${D.est.length} estaciones del INA, ${con.filter(e => e.estado !== "normal").length} sobre alerta`;
 }
 
 /* ——— alertas SMN ——— */
@@ -184,7 +190,7 @@ function renderAlertas(j) {
     <details><summary>Leer el aviso</summary><p>${esc(a.texto)}</p></details>${a._l ? `<p><a href="#" data-al="${i}">Ver el área en el mapa</a></p>` : ""}<small><a href="${safe(a.url)}" target="_blank" rel="noopener">Fuente: SMN</a></small></div>`;
   }).join("") : '<div class="vacio">No hay alertas vigentes del SMN para esta zona.</div>';
   stamp("alertas", j.actualizado);
-  $("#t-ale").textContent = `Alertas SMN: ${D.ale.length} vigentes`;
+  $("#t-ale").textContent = `${D.ale.length} avisos vigentes del Servicio Meteorológico`;
 }
 $("#alertas").addEventListener("click", e => { const a = e.target.closest("[data-al]"); if (a) { e.preventDefault(); fit(D.ale[a.dataset.al]._l.getBounds(), 9); if (innerWidth <= 800) document.body.classList.remove("sheet-open"); } });
 
@@ -205,7 +211,7 @@ function renderPrensa(j) {
   listaPrensa();
   stamp("prensa", j.actualizado);
   const n = D.pre.filter(x => Date.now() - P(x.fecha) < 72 * 36e5).length;
-  $("#t-pre").textContent = `Prensa: ${D.pre.length} notas, ${n} en 72 h`;
+  $("#t-pre").textContent = `${D.pre.length} notas ubicadas, ${n} de las últimas 72 h. Sin verificar`;
 }
 function listaPrensa() {
   const cnt = {}; D.pre.forEach(x => cnt[x.tipo] = (cnt[x.tipo] || 0) + 1);
@@ -244,7 +250,7 @@ const CM = "&colormap=" + encodeURIComponent(JSON.stringify({ 0: [0, 0, 0, 0], 1
 const VACIO = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 let fechas = [];
 const mkScene = (s, op) => L.tileLayer(s.tiles + CM, { pane: "gfm", bounds: [[s.bounds[1], s.bounds[0]], [s.bounds[3], s.bounds[2]]], minZoom: Math.max(7, s.min - 2), minNativeZoom: s.min, maxNativeZoom: s.max, maxZoom: 19, opacity: op, errorTileUrl: VACIO, attribution: "Inundación: Copernicus GFM" });
-function verGfm(i) { G.gfm.clearLayers(); fechas[i].e.forEach(s => G.gfm.addLayer(mkScene(s, .85))); $("#t-gfm").textContent = `Agua por radar: pasada del ${fdia(fechas[i].f)}`; }
+function verGfm(i) { G.gfm.clearLayers(); fechas[i].e.forEach(s => G.gfm.addLayer(mkScene(s, .85))); $("#t-gfm").textContent = `Agua vista por el radar Sentinel-1 (20 m), pasada del ${fdia(fechas[i].f)}`; }
 function renderGfm(j) {
   const m = new Map(); j.escenas.forEach(s => (m.get(s.fecha) || m.set(s.fecha, []).get(s.fecha)).push(s));
   D.gfm = j.escenas; fechas = [...m].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([f, e]) => ({ f, e }));
@@ -434,7 +440,7 @@ function hdEstado() {
   if (on.hd) { if (map.getZoom() < 13) map.setZoom(14); toast("Foto aérea de archivo (2011 a 2021, IGN): sirve para ver calles y casas. No muestra el agua de hoy; el azul de “Agua nueva” sí es reciente.", 7000); }
 }
 const BOX = { type: "Polygon", coordinates: [[[-62.9, -29.1], [-57.2, -29.1], [-57.2, -23.9], [-62.9, -23.9], [-62.9, -29.1]]] };
-const V0 = () => innerWidth > 800 ? 22 : 30;                                                    // la línea arranca a la izquierda: casi todo el mapa muestra el "después" con el agua nueva
+const V0 = () => innerWidth > 800 ? (BC.contains("izq-x") ? 60 : 430) / innerWidth * 100 : 30;                                                   // la línea arranca a la izquierda: casi todo el mapa muestra el "después" con el agua nueva
 const MOS = {};                                                                                  // fecha -> id de mosaico (todas las pasadas de ese día, toda la región)
 const mosaico = dia => MOS[dia] ??= fetch(PC + "data/v1/mosaic/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
   collections: ["sentinel-2-l2a"], "filter-lang": "cql2-json", metadata: { name: "s2-" + dia },
@@ -539,6 +545,9 @@ async function mostrar() {
   const ln = $("#cmp-line"); $("#cmp").hidden = false; document.body.classList.add("fotos"); satEstado();
   $(".l", ln).textContent = "Antes · " + fdia(C.fotos[C.A].f); $(".r", ln).textContent = "Después · " + fdia(C.fotos[C.B].f);
   $("#leyenda-f").textContent = `Agua nueva: aparece el ${fdia(C.fotos[C.B].f)} y no estaba el ${fdia(C.fotos[C.A].f)}`;
+  const u = C.fotos[0];                                                                         // la pasada más reciente del satélite
+  $("#cmp-auto").textContent = C.B === 0 ? `«Después» es la foto más reciente del satélite (${fdia(u.f)}). Se actualiza sola con cada pasada, cada 2 a 5 días.`
+    : `La pasada más reciente es del ${fdia(u.f)}, con ${u.nub} % de nubes. Se muestra la última foto clara.`;
   marca(); clip();
 }
 function satEstado() {                                                                            // el satélite se oculta y se vuelve a mostrar; el agua queda
@@ -686,8 +695,9 @@ function tour() {
     ["#buscar", "Poné tu dirección", "Escribí tu dirección con calle y ciudad y apretá Enter. También podés tocar ◎ para usar tu ubicación o 📍 para marcar un punto en el mapa."],
     ["#radio", "Elegí el radio", "Define cuánto alrededor querés mirar: 5, 10 o 25 km."],
     [m ? "#tabs" : "#panel", "Secciones", "Resumen de tu zona, Prensa, Ríos, Alertas, Videos y Enviar. Cada una tiene un “¿Cómo se lee esto?” arriba."],
-    ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. «Agua nueva» marca en azul lo que se inundó entre las dos fechas. «Mapa» esconde los paneles. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
+    ["#dock", "Capas del mapa", "Prendé y apagá lo que se ve. Cada fila dice qué muestra. «Agua nueva» marca en azul lo que se inundó entre las dos fechas. «Solo mapa» cierra los dos paneles. En los ríos, el triángulo naranja que late es una estación sobre su cota de evacuación."],
     ["#cmp", "Antes y después", "Elegí las dos fechas. «Ocultar satélite» deja el mapa de calles con el agua marcada encima, y «Ver satélite» la vuelve a mostrar."],
+    [m ? "#top" : "#x-izq", "Achicar o cerrar", "Cada panel se achica con ⌃ y se cierra con ×. Para volver a abrirlo, tocá el botón chico que queda en la esquina."],
     ["#strip", "Aviso", "Es información automática y no oficial. Ante una emergencia, llamá al 911. Podés cerrarlo con ×; el detalle queda en «Aviso», arriba."],
   ].filter(p => { const el = $(p[0]); return el && el.getClientRects().length; });
   if (!pasos.length) return;

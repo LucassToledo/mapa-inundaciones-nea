@@ -27,9 +27,10 @@
 <header id="top" class="glass">
  <div class="brand">
   <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3C12 10 7 14.5 7 20a9 9 0 0018 0c0-5.500-5-10-9-17z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00a3d9"/><stop offset="1" stop-color="#0a63c9"/></linearGradient></defs></svg>
-  <div><h1 class="grad">Inundaciones Chaco y NEA</h1><small id="brand-sub">Mapa abierto de inundaciones<br>Creado por <a href="https://www.instagram.com/eltiolucas.ia/" target="_blank" rel="noopener">@eltiolucas.ia</a> · <button type="button" class="link" data-aviso>Aviso</button></small></div>
-  <button type="button" id="btn-help" class="icon" aria-label="Ver el tutorial" title="Tutorial">?</button>
-  <button type="button" id="min-top" class="icon" aria-expanded="true" aria-label="Minimizar el encabezado" title="Minimizar"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+  <div><h1>Inundaciones Chaco y NEA</h1><small id="brand-sub">Mapa abierto de inundaciones<br>Creado por <a href="https://www.instagram.com/eltiolucas.ia/" target="_blank" rel="noopener">@eltiolucas.ia</a> · <button type="button" class="link" data-aviso>Aviso</button></small></div>
+  <button type="button" id="btn-help" class="icon" aria-label="Ver el recorrido guiado" title="Recorrido guiado">?</button>
+  <button type="button" id="min-top" class="icon" aria-expanded="true" aria-label="Minimizar el panel" title="Minimizar"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+  <button type="button" id="x-izq" class="icon" aria-label="Cerrar el panel" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
  </div>
  <form id="buscar" role="search" autocomplete="off">
   <div class="combo">
@@ -49,27 +50,30 @@
  </div>
 </header>
 <div id="cmp" class="glass" role="group" aria-label="Comparar fotos del satélite" hidden>
+ <h2 class="tit">Comparar fechas</h2>
  <label>Antes <select id="cmp-a"></select></label>
  <label>Después <select id="cmp-b"></select></label>
  <button type="button" id="cmp-x" class="btn sec" aria-pressed="false">Ocultar satélite</button>
+ <p id="cmp-auto"></p>
  <p id="leyenda"><span><i class="sw n"></i><b id="leyenda-f"></b></span><span><i class="sw p"></i>Agua que ya estaba</span><span><i class="sw g"></i>Rayado: sin dato (nubes)</span><small>Sentinel-2, 10 a 20 m por píxel. Agua según el índice MNDWI y la clasificación de la escena. Con nubes puede fallar.</small></p>
 </div>
 <div id="dock" class="glass" role="toolbar" aria-label="Capas del mapa">
- <button type="button" class="dk" data-l="est" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 8c3 0 3 2 6 2s3-2 6-2 3 2 6 2M3 14c3 0 3 2 6 2s3-2 6-2 3 2 6 2"/></svg><span class="lb">Ríos</span><span class="tip" id="t-est">Ríos (INA)</span></button>
- <button type="button" class="dk" data-l="gfm" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/></svg><span class="lb">Radar</span><span class="tip" id="t-gfm">Agua por radar</span></button>
- <button type="button" class="dk" data-l="cam" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3C9 9 5.500 12 5.500 16a6.500 6.500 0 0013 0C18.500 12 15 9 12 3z"/></svg><span class="lb">Agua nueva</span><span class="tip">Agua que apareció entre las dos fechas</span></button>
- <button type="button" class="dk" data-l="hd" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6"/></svg><span class="lb">Foto HD</span><span class="tip">Aérea de archivo 2011-2021 (IGN), no es de hoy</span></button>
- <button type="button" class="dk" data-l="pre" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M5 4h11v16H7a2 2 0 01-2-2V4zM16 8h3v10a2 2 0 01-2 2M8 8h5M8 12h5M8 16h5"/></svg><span class="lb">Prensa</span><span class="tip" id="t-pre">Notas de prensa</span></button>
- <button type="button" class="dk" data-l="ale" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3zM12 10v5M12 18v.5"/></svg><span class="lb">Alertas</span><span class="tip" id="t-ale">Alertas SMN</span></button>
- <button type="button" class="dk" data-l="vid" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span class="lb">Videos</span><span class="tip">Videos con ubicación</span></button>
- <button type="button" id="solo" class="dk" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lb">Mapa</span><span class="tip">Solo mapa (ocultar paneles)</span></button>
+ <h2 class="tit">Capas</h2>
+ <button type="button" class="dk" data-l="est" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 8c3 0 3 2 6 2s3-2 6-2 3 2 6 2M3 14c3 0 3 2 6 2s3-2 6-2 3 2 6 2"/></svg><span class="lb">Ríos</span><span class="tip" id="t-est">Altura de los ríos según el INA</span></button>
+ <button type="button" class="dk" data-l="gfm" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/></svg><span class="lb">Radar</span><span class="tip" id="t-gfm">Agua vista por el radar Sentinel-1, atraviesa nubes</span></button>
+ <button type="button" class="dk" data-l="cam" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 3C9 9 5.500 12 5.500 16a6.500 6.500 0 0013 0C18.500 12 15 9 12 3z"/></svg><span class="lb">Agua nueva</span><span class="tip">Azul fuerte: agua que no estaba en la fecha Antes</span></button>
+ <button type="button" class="dk" data-l="hd" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6"/></svg><span class="lb">Foto HD</span><span class="tip">Foto aérea del IGN de 2011 a 2021. Ubica calles, no muestra el agua de hoy</span></button>
+ <button type="button" class="dk" data-l="pre" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M5 4h11v16H7a2 2 0 01-2-2V4zM16 8h3v10a2 2 0 01-2 2M8 8h5M8 12h5M8 16h5"/></svg><span class="lb">Prensa</span><span class="tip" id="t-pre">Notas de medios ubicadas en el mapa, sin verificar</span></button>
+ <button type="button" class="dk" data-l="ale" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3zM12 10v5M12 18v.5"/></svg><span class="lb">Alertas</span><span class="tip" id="t-ale">Avisos vigentes del Servicio Meteorológico</span></button>
+ <button type="button" class="dk" data-l="vid" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span class="lb">Videos</span><span class="tip">Videos revisados a mano, con fecha y lugar</span></button>
+ <button type="button" id="solo" class="dk" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lb">Solo mapa</span><span class="tip">Cierra los dos paneles. Se reabren desde las esquinas</span></button>
 </div>
 </div>
 
 
 <aside id="panel" class="glass" aria-label="Paneles de información">
  <button type="button" id="grip" aria-label="Mostrar u ocultar el panel"><span></span></button>
- <div id="ph"><span>Información</span><button type="button" id="min-panel" class="icon" aria-expanded="true" aria-label="Minimizar el panel" title="Minimizar el panel"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button></div>
+ <div id="ph"><span>Información</span><button type="button" id="min-panel" class="icon" aria-expanded="true" aria-label="Minimizar el panel" title="Minimizar"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button><button type="button" id="x-panel" class="icon" aria-label="Cerrar el panel" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button></div>
  <nav id="tabs" role="tablist">
   <button role="tab" data-p="resumen" aria-selected="true">Resumen</button>
   <button role="tab" data-p="prensa" aria-selected="false">Prensa</button>
@@ -139,7 +143,9 @@
 </aside>
 
 
-<button type="button" id="solo-x" class="glass" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>Mostrar paneles</button>
+<!-- reabrir un panel cerrado -->
+<button type="button" id="abrir-izq" class="abrir glass" aria-label="Abrir el panel de búsqueda y capas" title="Búsqueda y capas" hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
+<button type="button" id="abrir-panel" class="abrir glass" aria-label="Abrir el panel de información" title="Información" hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></svg></button>
 
 <div id="toast" role="status" aria-live="polite" hidden></div>
 
